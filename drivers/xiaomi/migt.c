@@ -259,7 +259,7 @@ module_param_cb(mi_viptask, &param_ops_mi_viptask, NULL, 0644);
 
 static void add_uid_to_list(int uid, enum CLUSTER_AFFINITY type)
 {
-	if (unlikely(uid >= BIT_MAP_SIZE)) {
+	if (unlikely((unsigned int)uid >= BIT_MAP_SIZE)) {
 		pr_info("Big uid %d warning\n", uid);
 		return;
 	}
@@ -290,7 +290,7 @@ static void add_uid_to_list(int uid, enum CLUSTER_AFFINITY type)
 }
 static void del_uid_from_list(int uid, enum CLUSTER_AFFINITY type)
 {
-	if (unlikely(uid >= BIT_MAP_SIZE)) {
+	if (unlikely((unsigned int)uid >= BIT_MAP_SIZE)) {
 		pr_info("Big uid %d warning\n", uid);
 		return;
 	}
@@ -488,7 +488,7 @@ module_param_cb(show_bclus_affinity_uidlist, &param_ops_clus_affinity_uidlist,
 
 enum CLUSTER_AFFINITY mi_uid_type(int uid)
 {
-	if (unlikely(uid >= BIT_MAP_SIZE))
+	if (unlikely((unsigned int)uid >= BIT_MAP_SIZE))
 		return 0;
 
 	if (test_bit(uid, cluster_affinity_uid_mlist))
@@ -945,7 +945,7 @@ static void add_uid_to_ceiling_user(int uid)
 		ceiling_users.uid[i] = uid;
 		ceiling_users.count++;
 	} else {
-		for (i = 0; i < users - 1; i--)
+		for (i = 0; i < users - 1; i++)
 			ceiling_users.uid[i] = ceiling_users.uid[i + 1];
 		ceiling_users.uid[users - 1] = uid;
 	}
