@@ -356,9 +356,11 @@ if [ "$TARGET_OS" == "miui" ] || [ "$TARGET_OS" == "coloros" ] || [ "$TARGET_OS"
         -e EROFS_FS_PCPU_KTHREAD_HIPRI \
         -d PSTORE_COMPRESS \
         --set-str STATIC_USERMODEHELPER_PATH "" \
-        -d SF_BINDER \
-        -d MILLET \
-        -d MIGT \
+        -e SF_BINDER \
+        -e PERF_CRITICAL_RT_TASK \
+        -e PACKAGE_RUNTIME_INFO \
+        -e MILLET \
+        -e MIGT \
         -d MIGT_ENERGY_MODEL \
         -d BOOTUP_RECLAIM \
         -d MI_RECLAIM \
