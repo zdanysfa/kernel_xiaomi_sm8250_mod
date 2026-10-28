@@ -1094,7 +1094,8 @@ static int swapdropd_fn(void *p)
 			put_task_struct(task);
 
 			if (retry) {
-				enqueue_reclaim_data(task->pid, &drop_info);
+				/* task may be freed after put_task_struct(), use the queued pid */
+				enqueue_reclaim_data(data.pid, &drop_info);
 				msleep_interruptible(1000);
 			}
 		}
