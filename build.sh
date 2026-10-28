@@ -67,13 +67,6 @@ if [ -d "$HOME/zyc-clang/bin" ]; then
     echo "Using ZyC Clang: [$HOME/zyc-clang/bin]"
 fi
 
-# Enable ccache for fast compiling
-export CCACHE_DIR="$HOME/.cache/ccache_mikernel"
-export CC="ccache gcc"
-export CXX="ccache g++"
-export PATH="/usr/lib/ccache/bin:/usr/lib/ccache:$PATH"
-echo "CCACHE_DIR: [$CCACHE_DIR]"
-
 export KBUILD_BUILD_USER="build-user"
 export KBUILD_BUILD_HOST="build-host 4.19.404R"
 
@@ -136,12 +129,8 @@ apply_ksu_config() {
         scripts/config --file out/.config \
             -e KSU \
             -e THREAD_INFO_IN_TASK \
-            -d KSU_KPROBES_HOOK \
             -d KSU_DEBUG \
             -d KSU_TRACEPOINT_HOOK \
-            -e KSU_THRONE_TRACKER_ALWAYS_THREADED \
-            -d KSU_ALLOWLIST_WORKAROUND \
-            -e KSU_LSM_SECURITY_HOOKS \
             -d KSU_MANUAL_HOOK \
             -e KSU_MULTI_MANAGER_SUPPORT
 
@@ -152,19 +141,13 @@ apply_ksu_config() {
                 -d KSU_TRACEPOINT_HOOK \
                 -e KSU_SUSFS_SUS_PATH \
                 -e KSU_SUSFS_SUS_MAP \
-                -e KSU_SUSFS_SUS_NETLINK \
-                -e KSU_SUSFS_AUTO_ADD_SUS_KSURULES \
-                -e KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT \
-                -e KSU_SUSFS_SUS_SU \
                 -e KSU_SUSFS_SUS_MOUNT \
                 -e KSU_SUSFS_SUS_KSTAT \
                 -e KSU_SUSFS_SPOOF_UNAME \
                 -e KSU_SUSFS_ENABLE_LOG \
                 -e KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
                 -e KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
-                -e KSU_SUSFS_OPEN_REDIRECT \
-                -e KSU_SUSFS_SUS_OVERLAYFS \
-                -e KSU_SUSFS_ENABLE_AVC_LOG_SPOOFING
+                -e KSU_SUSFS_OPEN_REDIRECT
         else
             scripts/config --file out/.config \
                 -e KSU_MANUAL_HOOK \
@@ -173,19 +156,13 @@ apply_ksu_config() {
                 -d KSU_SUSFS \
                 -d KSU_SUSFS_SUS_PATH \
                 -d KSU_SUSFS_SUS_MAP \
-                -d KSU_SUSFS_SUS_NETLINK \
-                -d KSU_SUSFS_AUTO_ADD_SUS_KSURULES \
-                -d KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT \
-                -d KSU_SUSFS_SUS_SU \
                 -d KSU_SUSFS_SUS_MOUNT \
                 -d KSU_SUSFS_SUS_KSTAT \
                 -d KSU_SUSFS_SPOOF_UNAME \
                 -d KSU_SUSFS_ENABLE_LOG \
                 -d KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
                 -d KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
-                -d KSU_SUSFS_OPEN_REDIRECT \
-                -d KSU_SUSFS_SUS_OVERLAYFS \
-                -d KSU_SUSFS_ENABLE_AVC_LOG_SPOOFING
+                -d KSU_SUSFS_OPEN_REDIRECT
         fi
     else
         scripts/config --file out/.config \
@@ -195,19 +172,13 @@ apply_ksu_config() {
             -d KSU_SUSFS \
             -d KSU_SUSFS_SUS_PATH \
             -d KSU_SUSFS_SUS_MAP \
-            -d KSU_SUSFS_SUS_NETLINK \
-            -d KSU_SUSFS_AUTO_ADD_SUS_KSURULES \
-            -d KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT \
-            -d KSU_SUSFS_SUS_SU \
             -d KSU_SUSFS_SUS_MOUNT \
             -d KSU_SUSFS_SUS_KSTAT \
             -d KSU_SUSFS_SPOOF_UNAME \
             -d KSU_SUSFS_ENABLE_LOG \
             -d KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
             -d KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
-            -d KSU_SUSFS_OPEN_REDIRECT \
-            -d KSU_SUSFS_SUS_OVERLAYFS \
-            -d KSU_SUSFS_ENABLE_AVC_LOG_SPOOFING
+            -d KSU_SUSFS_OPEN_REDIRECT
     fi
 }
 
@@ -483,9 +454,6 @@ fi
 zip -r9 "$ZIP_FILENAME" ./* -x .git .gitignore out/ ./*.zip
 mkdir -p ../release
 cp -f "$ZIP_FILENAME" ../release/
-mkdir -p ../../release 2>/dev/null || true
-cp -f "$ZIP_FILENAME" ../../release/ 2>/dev/null || true
-cp -f "$ZIP_FILENAME" /home/kiki/Downloads/ 2>/dev/null || true
 mv "$ZIP_FILENAME" ../
 cd ..
 
