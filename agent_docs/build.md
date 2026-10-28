@@ -76,9 +76,7 @@ bash build.sh <device> [variant] [target_os]
    `.dtb` found) as `dtb`.
 9. Pack `Image` + `dtb` into `anykernel/kernels/<os>/`, copy
    `anykernel_template/anykernel.sh` in, zip.
-10. Zip lands at `./<TAG>_Ki-kernel-<OS>-<ver>_<dev>.zip`, plus copies in `release/`,
-    `../../release/` and `/home/kiki/Downloads/` (last two: previous dev's layout,
-    fail silently).
+10. Zip lands at `./<TAG>_Ki-kernel-<OS>-<ver>_<dev>.zip`, plus a copy in `release/`.
 
 Config precedence: **`build.sh` `scripts/config` lines > defconfig**. When a defconfig
 change "does nothing", check whether `build.sh` forces that option.

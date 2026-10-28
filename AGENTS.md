@@ -66,7 +66,7 @@ screen (display driver differs).
 
 Owner's machine on 2026-10-28: CachyOS, 4 cores, 11 GB RAM, `clang`, `ld.lld`,
 `adb`, `fastboot`, `cargo`, `python` present. **Missing**: any of the three toolchain
-dirs, `aarch64-linux-gnu-ld`, `arm-linux-gnueabi-*`, `ccache`. Setup steps:
+dirs, `aarch64-linux-gnu-ld`, `arm-linux-gnueabi-*`. Setup steps:
 [agent_docs/build.md](agent_docs/build.md).
 
 ---
@@ -196,13 +196,9 @@ These come from the owner and override generic instincts.
 | **Broken symlink (other device)** | `arch/arm64/boot/dts/vendor/xiaomi/pipa-sm8250-overlay.dts -> ../qcom/pipa-sm8250-overlay.dtsi` dangles; not used by munch | `test -e` |
 | **Toolchain** | Not installed on owner's machine | §2 |
 | **README.md** | Stale (liyafe1997 content: SukiSU 3.2, Proton Clang, `build.sh DEVICE ksu`) | file |
-| **build.sh side effects** | `sed`s `CONFIG_LOCALVERSION` into the tracked defconfig; copies `gpu_profiles/kona-v2-gpu-extreme.dtsi` over tracked `vendor/qcom/kona-v2-gpu.dtsi` (already identical today); writes `/tmp/genheaders`; copies zip to `../../release/` and `/home/kiki/Downloads/` | `build.sh` |
-| **ccache** | `build.sh` exports `CC="ccache gcc"`, but `CC=clang` on the make command line overrides it, so kernel objects are **not** ccached | `build.sh` `MAKE_ARGS` |
+| **build.sh side effects** | `sed`s `CONFIG_LOCALVERSION` into the tracked defconfig; copies `gpu_profiles/kona-v2-gpu-extreme.dtsi` over tracked `vendor/qcom/kona-v2-gpu.dtsi` (already identical today); writes `/tmp/genheaders`; copies the zip to `release/` | `build.sh` |
 | **Fork & contribution graph** | `origin` is a fork of `Luckyfr1945/…`; fork commits never count on GitHub. Fork default branch is `android15-lineage22-mod` (256 commits behind `stable`) | `gh repo view` |
 | **`anykernel_template/`** | Listed in `.gitignore` but tracked | `.gitignore:155` |
-| **WebUI Thermal Guard toggle** | Does nothing: it writes `/sys/kernel/ki_profile/thermal_throttle`, which is `__ATTR_RO`. Hardware-safety area, owner decides | `ki_profile.c:850`, `app.js` |
-| **MGLRU runtime toggle** | Off ↔ on runs `lru_gen_change_state()`: takes cgroup + cpu hotplug locks and `lru_lock` with IRQs off while moving every page; a visible stall mid-game. Mode 7 equals 3 on arm64 (`0x0004` needs `CONFIG_ARCH_HAS_NONLEAF_PMD_YOUNG`, x86 only) | `mm/vmscan.c:4818`, `:4914` |
-| **vfs_cache_pressure** | Same two-writer problem swappiness had: module `VFS_CACHE_PRESSURE` vs `ki_profile` | `bin/ki`, `ki_profile.c` |
 | **OPlus drivers on every ROM** | `CONFIG_OPLUS_PORT`, `NANDSWAP`, `NWPOWER` are in `munch_defconfig`, so they build into AOSP/MIUI too; idle unless ColorOS userspace drives them (inferred) | `munch_defconfig:878-882` |
 
 ---
