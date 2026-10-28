@@ -13,7 +13,9 @@ fix this file.
    git submodule update --init KernelSU      # Baka-SU/BakaSU, see kernelsu-susfs.md
    git clone --depth 1 -b v2.2.0 https://github.com/maxsteeel/nomount NoMount
    git clone https://github.com/vc-teahouse/Baseband-guard Baseband-guard
+   git -C Baseband-guard checkout 028ff7fd509e2104596da7cc1ef8e6ce2a0c9082
    ```
+   These revs match `.github/workflows/build.yml`; bump both together.
 2. **Toolchain** at one of these paths (checked in this order):
    - `~/zyc-clang/bin`: ZyCromerZ Clang 16.0.6, used for v1.3–v1.5 releases.
      Releases: `https://github.com/ZyCromerZ/Clang/releases` (tags like
