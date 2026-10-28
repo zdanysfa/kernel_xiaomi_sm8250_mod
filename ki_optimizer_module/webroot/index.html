@@ -112,31 +112,6 @@
         </div>
       </section>
 
-      <!-- Memory Tuning Section -->
-      <section class="settings-section" aria-labelledby="memory-heading">
-        <div class="section-heading">
-          <h2 id="memory-heading">Memory Tuning</h2>
-        </div>
-        <div class="settings-list">
-          <!-- MGLRU -->
-          <div class="setting-row setting-row-stack" id="row-mglru">
-            <div class="setting-copy">
-              <div class="setting-title-line">
-                <h3>Multi-Gen LRU (MGLRU)</h3>
-                <span class="setting-status" id="badge-mglru">Checking...</span>
-              </div>
-              <p>Modern memory page reclaiming algorithm. Controls page table scanning depth.</p>
-            </div>
-            <div class="mglru-segmented" id="mglru-group">
-              <button type="button" class="mglru-btn" data-mode="0" id="btn-mglru-0">Off</button>
-              <button type="button" class="mglru-btn" data-mode="1" id="btn-mglru-1">Standard</button>
-              <button type="button" class="mglru-btn" data-mode="7" id="btn-mglru-7">Gaming</button>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
       <!-- Power & Charging Section -->
       <section class="settings-section" aria-labelledby="power-heading">
         <div class="section-heading">
@@ -224,22 +199,6 @@
             </div>
             <label class="switch" aria-label="Toggle dynamic fsync">
               <input type="checkbox" id="toggle-dynfsync">
-              <span class="switch-track" aria-hidden="true"></span>
-            </label>
-          </div>
-
-          <!-- Dynamic Thermal Guard -->
-          <div class="setting-row" id="row-thermal">
-            <div class="setting-copy">
-              <div class="setting-title-line">
-                <h3>Dynamic Thermal Guard</h3>
-                <span class="setting-status" id="badge-thermal">Checking...</span>
-              </div>
-              <p>Adaptive kernel thermal throttling governor to prevent sudden FPS frame drops during extended gameplay.
-              </p>
-            </div>
-            <label class="switch" aria-label="Toggle thermal guard">
-              <input type="checkbox" id="toggle-thermal">
               <span class="switch-track" aria-hidden="true"></span>
             </label>
           </div>

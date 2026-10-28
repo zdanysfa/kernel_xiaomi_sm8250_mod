@@ -72,14 +72,6 @@ const cardProf1 = document.getElementById("card-prof-1");
 const cardProf2 = document.getElementById("card-prof-2");
 
 // Kernel Feature Rows
-const rowMglru = document.getElementById("row-mglru");
-const badgeMglru = document.getElementById("badge-mglru");
-const mglruBtns = [
-  document.getElementById("btn-mglru-0"),
-  document.getElementById("btn-mglru-1"),
-  document.getElementById("btn-mglru-7")
-];
-let currentMglruMode = 1;
 
 
 const rowBypass = document.getElementById("row-bypass");
@@ -102,9 +94,6 @@ const rowDynFsync = document.getElementById("row-dynfsync");
 const toggleDynFsync = document.getElementById("toggle-dynfsync");
 const badgeDynFsync = document.getElementById("badge-dynfsync");
 
-const rowThermal = document.getElementById("row-thermal");
-const toggleThermal = document.getElementById("toggle-thermal");
-const badgeThermal = document.getElementById("badge-thermal");
 
 const rowTcp = document.getElementById("row-tcp");
 const selectTcp = document.getElementById("select-tcp");
@@ -210,7 +199,6 @@ async function setProfileInstant(profileId) {
 
   try {
     await exec(`
-      echo ${id} > /proc/ki_profile 2>/dev/null
       echo ${id} > /sys/kernel/ki_profile/mode 2>/dev/null
       CONF="/sdcard/ki_optimizer.conf"
       if [ -f "$CONF" ]; then
@@ -223,44 +211,6 @@ async function setProfileInstant(profileId) {
   }
 }
 
-// Update MGLRU Segmented UI
-function setMglruUI(mode, isSupported = true) {
-  currentMglruMode = parseInt(mode, 10);
-  if (!isSupported) {
-    rowMglru?.classList.add("is-unsupported");
-    mglruBtns.forEach(btn => { if (btn) btn.disabled = true; });
-    if (badgeMglru) {
-      badgeMglru.textContent = "Unsupported";
-      badgeMglru.classList.add("is-unsupported");
-    }
-    return;
-  }
-
-  rowMglru?.classList.remove("is-unsupported");
-  mglruBtns.forEach(btn => {
-    if (btn) {
-      btn.disabled = false;
-      const bMode = parseInt(btn.dataset.mode, 10);
-      btn.classList.toggle("active", bMode === currentMglruMode);
-    }
-  });
-
-  if (badgeMglru) {
-    badgeMglru.classList.remove("is-unsupported");
-    if (currentMglruMode === 7) {
-      badgeMglru.textContent = "Gaming Turbo (0x0007)";
-      badgeMglru.classList.remove("is-off");
-    } else if (currentMglruMode === 1) {
-      badgeMglru.textContent = "Standard (0x0001)";
-      badgeMglru.classList.remove("is-off");
-    } else {
-      badgeMglru.textContent = "Disabled";
-      badgeMglru.classList.add("is-off");
-    }
-  }
-}
-
-// Live Battery & Temp Telemetry (Adaptive & Non-blocking)
 async function updateTelemetry() {
   if (!isKiKernelActive || isUserInteracting) return;
   try {
@@ -307,13 +257,6 @@ async function refreshState() {
       PROF="$(cat /sys/kernel/ki_profile/mode 2>/dev/null || cut -d' ' -f1 /proc/ki_profile 2>/dev/null || echo '1')"
 
       # Check feature availability
-      HAS_MGLRU=0
-      RAW_MGLRU="0"
-      if [ -f /sys/kernel/mm/lru_gen/enabled ] || [ -f /proc/mglru ]; then
-        HAS_MGLRU=1
-        RAW_MGLRU="$(cat /sys/kernel/mm/lru_gen/enabled 2>/dev/null || cat /proc/mglru 2>/dev/null || echo '0')"
-      fi
-
       HAS_BYPASS=0
       VAL_BYPASS=0
       if [ -f /proc/bypass_charging ] || [ -f /sys/class/power_supply/battery/bypass_charging ]; then
@@ -349,13 +292,6 @@ async function refreshState() {
         VAL_DYNSYNC="$(cat /sys/kernel/dyn_fsync/Dyn_fsync_active 2>/dev/null || cat /sys/kernel/dyn_fsync/dyn_fsync_active 2>/dev/null || echo '0')"
       fi
 
-      HAS_THERMAL=0
-      VAL_THERMAL=1
-      if [ -f /sys/kernel/ki_profile/thermal_throttle ]; then
-        HAS_THERMAL=1
-        VAL_THERMAL="$(cat /sys/kernel/ki_profile/thermal_throttle 2>/dev/null || echo '1')"
-      fi
-
       VAL_TCP="$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null || echo 'cubic')"
 
       echo "IS_KI=$IS_KI"
@@ -364,8 +300,6 @@ async function refreshState() {
       echo "BATT=$BATT"
       echo "TEMP=$TEMP"
       echo "PROF=$PROF"
-      echo "HAS_MGLRU=$HAS_MGLRU"
-      echo "RAW_MGLRU=$RAW_MGLRU"
       echo "HAS_BYPASS=$HAS_BYPASS"
       echo "VAL_BYPASS=$VAL_BYPASS"
       echo "HAS_FC=$HAS_FC"
@@ -376,8 +310,6 @@ async function refreshState() {
       echo "VAL_WAKELOCK=$VAL_WAKELOCK"
       echo "HAS_DYNSYNC=$HAS_DYNSYNC"
       echo "VAL_DYNSYNC=$VAL_DYNSYNC"
-      echo "HAS_THERMAL=$HAS_THERMAL"
-      echo "VAL_THERMAL=$VAL_THERMAL"
       echo "VAL_TCP=$VAL_TCP"
     `);
 
@@ -407,22 +339,11 @@ async function refreshState() {
 
     setActiveProfileUI(props["PROF"] || 1);
 
-    if (props["HAS_MGLRU"] === "1") {
-      let mMode = 0;
-      const raw = props["RAW_MGLRU"] || "0";
-      if (raw.includes("7") || raw.includes("0x0007")) mMode = 7;
-      else if (raw.includes("1") || raw.includes("0x0001")) mMode = 1;
-      setMglruUI(mMode, true);
-    } else {
-      setMglruUI(0, false);
-    }
-
     updateFeatureRow(rowBypass, toggleBypass, badgeBypass, props["HAS_BYPASS"] === "1", props["VAL_BYPASS"] === "1", "Active", "Off");
     updateFeatureRow(rowFastCharge, toggleFastCharge, badgeFastCharge, props["HAS_FC"] === "1", props["VAL_FC"] === "1", "Active", "Off");
     updateFeatureRow(rowScreenOff, toggleScreenOff, badgeScreenOff, props["HAS_SCREENOFF"] === "1", props["VAL_SCREENOFF"] === "1", "Active", "Off");
     updateFeatureRow(rowWakelock, toggleWakelock, badgeWakelock, props["HAS_WAKELOCK"] === "1", props["VAL_WAKELOCK"] === "1", "Active", "Off");
     updateFeatureRow(rowDynFsync, toggleDynFsync, badgeDynFsync, props["HAS_DYNSYNC"] === "1", props["VAL_DYNSYNC"] === "1", "Active", "Off");
-    updateFeatureRow(rowThermal, toggleThermal, badgeThermal, props["HAS_THERMAL"] === "1", props["VAL_THERMAL"] === "1", "Active", "Bypass");
 
     if (selectTcp && props["VAL_TCP"]) {
       selectTcp.value = props["VAL_TCP"];
@@ -438,73 +359,28 @@ async function applyChanges(silent = false) {
   if (!isKiKernelActive) return;
 
   const prof = currentProfile;
-  const mglru = currentMglruMode;
   const bypass = toggleBypass?.checked ? 1 : 0;
   const fastcharge = toggleFastCharge?.checked ? 1 : 0;
   const screenoff = toggleScreenOff?.checked ? 1 : 0;
   const wakelock = toggleWakelock?.checked ? 1 : 0;
   const dynfsync = toggleDynFsync?.checked ? 1 : 0;
-  const thermal = toggleThermal?.checked ? 1 : 0;
   const tcp = selectTcp ? selectTcp.value : "cubic";
 
+  // Persist, then apply through `ki reload` so boot and WebUI share one code path
   const script = `
-    # 1. Apply Profile
-    echo ${prof} > /proc/ki_profile 2>/dev/null
-    echo ${prof} > /sys/kernel/ki_profile/mode 2>/dev/null
-
-    # 2. Apply MGLRU
-    echo ${mglru} > /proc/mglru 2>/dev/null
-    echo ${mglru} > /sys/kernel/mm/lru_gen/enabled 2>/dev/null
-
-    # 3. Apply Bypass Charging
-    echo ${bypass} > /proc/bypass_charging 2>/dev/null
-    echo ${bypass} > /sys/class/power_supply/battery/bypass_charging 2>/dev/null
-
-    # 4. Apply Fast Charge
-    echo ${fastcharge} > /sys/kernel/fast_charge/force_fast_charge 2>/dev/null
-    echo ${fastcharge} > /sys/kernel/fast_charge/screen_on_fast_charge 2>/dev/null
-
-    # 5. Apply Screen-Off Eco
-    echo ${screenoff} > /sys/kernel/ki_profile/screen_off_battery 2>/dev/null
-
-    # 6. Apply Wakelock Blocker
-    if [ "${wakelock}" = "1" ]; then
-      echo 1 > /sys/kernel/wakelock_blocker/enabled 2>/dev/null
-      echo 1 > /sys/devices/virtual/misc/boeffla_wakelock_blocker/wakelock_blocker 2>/dev/null
-    else
-      echo 0 > /sys/kernel/wakelock_blocker/enabled 2>/dev/null
-      echo 0 > /sys/devices/virtual/misc/boeffla_wakelock_blocker/wakelock_blocker 2>/dev/null
-    fi
-
-    # 7. Apply Dynamic Fsync
-    echo ${dynfsync} > /sys/kernel/dyn_fsync/Dyn_fsync_active 2>/dev/null
-    echo ${dynfsync} > /sys/kernel/dyn_fsync/dyn_fsync_active 2>/dev/null
-
-    # 8. Apply Thermal Throttle Guard
-    if [ "${thermal}" = "0" ]; then
-      echo 0 > /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
-    else
-      echo 1 > /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
-    fi
-
-    # 9. Apply TCP Congestion
-    echo "${tcp}" > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null
-
-    # 11. Persist to /sdcard/ki_optimizer.conf
     CONF="/sdcard/ki_optimizer.conf"
-    if [ -f "$CONF" ]; then
-      sed -i -E "s/^KI_PROFILE=.*/KI_PROFILE=${prof}/" "$CONF" 2>/dev/null
-      sed -i -E "s/^MGLRU_MODE=.*/MGLRU_MODE=${mglru}/" "$CONF" 2>/dev/null
-      sed -i -E "s/^MGLRU_ENABLED=.*/MGLRU_ENABLED=${mglru}/" "$CONF" 2>/dev/null
-      sed -i -E "s/^BYPASS_CHARGING=.*/BYPASS_CHARGING=${bypass}/" "$CONF" 2>/dev/null
-      sed -i -E "s/^SCREEN_ON_FAST_CHARGE=.*/SCREEN_ON_FAST_CHARGE=${fastcharge}/" "$CONF" 2>/dev/null
-      sed -i -E "s/^FORCE_FAST_CHARGE=.*/FORCE_FAST_CHARGE=${fastcharge}/" "$CONF" 2>/dev/null
-      sed -i -E "s/^SCREEN_OFF_BATTERY=.*/SCREEN_OFF_BATTERY=${screenoff}/" "$CONF" 2>/dev/null
-      sed -i -E "s/^WAKELOCK_BLOCKER=.*/WAKELOCK_BLOCKER=${wakelock}/" "$CONF" 2>/dev/null
-      sed -i -E "s/^THERMAL_THROTTLE=.*/THERMAL_THROTTLE=${thermal}/" "$CONF" 2>/dev/null
-      sed -i -E "s/^DYNAMIC_FSYNC=.*/DYNAMIC_FSYNC=${dynfsync}/" "$CONF" 2>/dev/null
-      sed -i -E "s/^TCP_CONGESTION=.*/TCP_CONGESTION=\\"${tcp}\\"/" "$CONF" 2>/dev/null
-    fi
+    [ -f "$CONF" ] || CONF="/data/adb/modules/ki_optimizer/ki_optimizer.conf"
+    sed -i -E \\
+      -e "s/^KI_PROFILE=.*/KI_PROFILE=${prof}/" \\
+      -e "s/^BYPASS_CHARGING=.*/BYPASS_CHARGING=${bypass}/" \\
+      -e "s/^SCREEN_ON_FAST_CHARGE=.*/SCREEN_ON_FAST_CHARGE=${fastcharge}/" \\
+      -e "s/^FORCE_FAST_CHARGE=.*/FORCE_FAST_CHARGE=${fastcharge}/" \\
+      -e "s/^SCREEN_OFF_BATTERY=.*/SCREEN_OFF_BATTERY=${screenoff}/" \\
+      -e "s/^WAKELOCK_BLOCKER=.*/WAKELOCK_BLOCKER=${wakelock}/" \\
+      -e "s/^DYNAMIC_FSYNC=.*/DYNAMIC_FSYNC=${dynfsync}/" \\
+      -e "s/^TCP_CONGESTION=.*/TCP_CONGESTION=\\"${tcp}\\"/" \\
+      "$CONF"
+    /data/adb/modules/ki_optimizer/bin/ki reload >/dev/null
   `;
 
   try {
@@ -532,15 +408,6 @@ cardProf1?.addEventListener("click", () => {
 
 cardProf2?.addEventListener("click", () => {
   setProfileInstant(2);
-});
-
-mglruBtns.forEach(btn => {
-  if (btn) {
-    btn.addEventListener("click", () => {
-      const mode = parseInt(btn.dataset.mode, 10);
-      setMglruUI(mode, true);
-    });
-  }
 });
 
 // Optimistic Switch Status Badge Updates
@@ -576,13 +443,6 @@ toggleDynFsync?.addEventListener("change", (e) => {
   if (badgeDynFsync) {
     badgeDynFsync.textContent = e.target.checked ? "Active" : "Off";
     badgeDynFsync.classList.toggle("is-off", !e.target.checked);
-  }
-});
-
-toggleThermal?.addEventListener("change", (e) => {
-  if (badgeThermal) {
-    badgeThermal.textContent = e.target.checked ? "Active" : "Bypass";
-    badgeThermal.classList.toggle("is-off", !e.target.checked);
   }
 });
 
