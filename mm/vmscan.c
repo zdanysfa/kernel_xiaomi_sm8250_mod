@@ -5471,7 +5471,7 @@ static int __init init_lru_gen(void)
 	debugfs_create_file("lru_gen_full", 0444, NULL, NULL, &lru_gen_ro_fops);
 
 #ifdef CONFIG_PROC_FS
-	proc_create("mglru", 0666, NULL, &mglru_proc_fops);
+	proc_create("mglru", 0644, NULL, &mglru_proc_fops);
 #endif
 
 	return 0;

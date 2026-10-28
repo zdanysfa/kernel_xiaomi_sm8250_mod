@@ -3443,8 +3443,9 @@ static ssize_t bypass_charging_store(struct device *dev,
 static DEVICE_ATTR_RW(bypass_charging);
 
 /*
- * Non-root userspace control interface via /proc/bypass_charging
- * Allows Termux, Tasker, shell scripts, and unprivileged apps to toggle bypass mode.
+ * Userspace control interface via /proc/bypass_charging.
+ * World-readable, root-writable (0644): an unprivileged app must not be
+ * able to stop charging or change charge current.
  */
 static ssize_t bypass_proc_read(struct file *file, char __user *buf,
 		size_t count, loff_t *ppos)
@@ -3492,8 +3493,9 @@ static const struct file_operations bypass_proc_fops = {
 };
 
 /*
- * Non-root userspace control interface via /proc/fast_charge
- * Allows Termux, Tasker, shell scripts, and unprivileged apps to toggle fast charge mode.
+ * Userspace control interface via /proc/fast_charge.
+ * World-readable, root-writable (0644): an unprivileged app must not be
+ * able to stop charging or change charge current.
  */
 static ssize_t fast_charge_proc_read(struct file *file, char __user *buf,
 		size_t count, loff_t *ppos)
@@ -3787,8 +3789,8 @@ static int smb5_init_batt_psy(struct smb5 *chip)
 	g_smb_chg = chg;
 	__smbchg = chg;
 
-	proc_create("bypass_charging", 0666, NULL, &bypass_proc_fops);
-	proc_create("fast_charge", 0666, NULL, &fast_charge_proc_fops);
+	proc_create("bypass_charging", 0644, NULL, &bypass_proc_fops);
+	proc_create("fast_charge", 0644, NULL, &fast_charge_proc_fops);
 
 	chg->screen_nb.notifier_call = smblib_screen_notifier_cb;
 	rc = mi_drm_register_client(&chg->screen_nb);
