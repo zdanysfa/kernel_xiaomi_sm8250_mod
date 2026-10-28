@@ -15,11 +15,10 @@ until [ "$(getprop sys.boot_completed)" = "1" ]; do
     sleep 3
 done
 
-# Ensure ki CLI and ki_daemon are linked in root PATH without touching /system
+# Ensure ki CLI is linked in root PATH without touching /system
 for bin_dir in /data/adb/ksu/bin /data/adb/ap/bin /data/adb/magisk; do
     if [ -d "$bin_dir" ]; then
         [ ! -e "$bin_dir/ki" ] && ln -sf "$MODDIR/bin/ki" "$bin_dir/ki" 2>/dev/null
-        [ ! -e "$bin_dir/ki_daemon" ] && ln -sf "$MODDIR/bin/ki_daemon" "$bin_dir/ki_daemon" 2>/dev/null
     fi
 done
 
@@ -48,12 +47,5 @@ chmod 666 /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
 # Apply configured tweaks
 if [ -x "$MODDIR/bin/ki" ]; then
     "$MODDIR/bin/ki" reload >/dev/null 2>&1
-fi
-
-# Launch Ki-Daemon (Rust Auto Game Turbo & Background Controller)
-if [ -x "$MODDIR/bin/ki_daemon" ]; then
-    killall ki_daemon 2>/dev/null
-    rm -f /data/adb/modules/ki_optimizer/daemon.pid /data/adb/modules/ki_optimizer/daemon.status 2>/dev/null
-    "$MODDIR/bin/ki_daemon" start >/dev/null 2>&1 || ( "$MODDIR/bin/ki_daemon" run >/dev/null 2>&1 & )
 fi
 

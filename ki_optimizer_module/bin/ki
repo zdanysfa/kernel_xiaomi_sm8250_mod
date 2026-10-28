@@ -342,16 +342,6 @@ EOF
     reload|apply)
         apply_config
         ;;
-    daemon)
-        shift
-        if command -v ki_daemon >/dev/null 2>&1; then
-            ki_daemon "$@"
-        elif [ -x "/data/adb/modules/ki_optimizer/bin/ki_daemon" ]; then
-            /data/adb/modules/ki_optimizer/bin/ki_daemon "$@"
-        else
-            echo "ki_daemon binary not found."
-        fi
-        ;;
     help|--help|-h)
         echo "Ki-Kernel Optimizer CLI Help:"
         echo "  ki             : Open Interactive TUI Dashboard"
@@ -364,11 +354,6 @@ EOF
         echo "  ki fc [1|0]    : Enable/Disable Fast Charge Overdrive"
         echo "  ki thermal [1|0]: Enable/Bypass Thermal Guard"
         echo "  ki reload      : Apply settings from /sdcard/ki_optimizer.conf"
-        echo "  ki daemon status: Show Ki-Daemon Auto Game Turbo status"
-        echo "  ki daemon start : Start Ki-Daemon in background"
-        echo "  ki daemon stop  : Stop Ki-Daemon"
-        echo "  ki daemon add-game <pkg>: Add game to auto-turbo list"
-        echo "  ki daemon remove-game <pkg>: Remove game from list"
         ;;
     *)
         echo "Unknown command '$1'. Run 'ki help' for instructions."
