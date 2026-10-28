@@ -1,0 +1,57 @@
+name: Build kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        type: choice
+        options: [ksu, nosusfs, noksu]
+        default: ksu
+      target_os:
+        type: choice
+        options: [miui, aosp, coloros, both]
+        default: miui
+
+env:
+  # Same toolchain as the v1.3-v1.5 releases.
+  ZYC_URL: https://github.com/ZyCromerZ/Clang/releases/download/16.0.6-20260807-release/Clang-16.0.6-20260807.tar.gz
+  # KernelSU/ comes in as a submodule. NoMount/ and Baseband-guard/ are not tracked,
+  # so pin them here. Keep in sync with agent_docs/build.md section 1.
+  NOMOUNT_TAG: v2.2.0
+  BBG_REV: main
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Host packages
+        run: sudo apt-get update && sudo apt-get install -y bc bison flex cpio zip libssl-dev libelf-dev
+
+      - name: Toolchain
+        run: |
+          mkdir -p ~/zyc-clang
+          curl -fsSL "$ZYC_URL" | tar -xz -C ~/zyc-clang
+          ~/zyc-clang/bin/clang --version | head -1
+
+      - name: External sources
+        run: |
+          git clone --depth 1 -b "$NOMOUNT_TAG" https://github.com/maxsteeel/nomount NoMount
+          git clone --depth 1 -b "$BBG_REV" https://github.com/vc-teahouse/Baseband-guard Baseband-guard
+          echo "BBG_SHA=$(git -C Baseband-guard rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          VARIANT: ${{ inputs.variant }}
+          TARGET_OS: ${{ inputs.target_os }}
+        run: bash build.sh munch "$VARIANT" "$TARGET_OS"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ki-kernel-munch-${{ inputs.variant }}-${{ inputs.target_os }}-bbg-${{ env.BBG_SHA }}
+          path: ./*_Ki-kernel-*_munch.zip
+          if-no-files-found: error
