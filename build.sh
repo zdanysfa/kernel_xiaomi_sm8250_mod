@@ -357,7 +357,6 @@ if [ "$TARGET_OS" == "miui" ] || [ "$TARGET_OS" == "coloros" ] || [ "$TARGET_OS"
         -d PSTORE_COMPRESS \
         --set-str STATIC_USERMODEHELPER_PATH "" \
         -e SF_BINDER \
-        -e PERF_CRITICAL_RT_TASK \
         -e PACKAGE_RUNTIME_INFO \
         -e MILLET \
         -e MIGT \
