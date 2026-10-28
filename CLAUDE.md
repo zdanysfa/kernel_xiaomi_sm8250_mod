@@ -39,7 +39,6 @@ never published, so some v1.5 manager features are missing:
 
 ## Stale files: do not trust as current
 
-`README.md` (liyafe1997-era: SukiSU, Proton Clang, old `build.sh` arguments),
-`buildall.sh` (pre-variant arguments, builds KSU twice), and the hardcoded copy to
+`README.md` (liyafe1997-era: SukiSU, Proton Clang, old `build.sh` arguments) and the hardcoded copy to
 `/home/kiki/Downloads/` at the end of `build.sh` (the previous developer's machine).
 `CHANGELOG.md` is the current release history.

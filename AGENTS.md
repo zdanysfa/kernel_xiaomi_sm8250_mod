@@ -79,9 +79,7 @@ kernel code. Ki-kernel-specific places:
 ```
 kernel_xiaomi_sm8250_mod/
 ├── build.sh                       # THE build entry point (variant + target OS → zip)
-├── buildall.sh                    # STALE, see §7
 ├── anykernel_template/anykernel.sh# Installer logic run in recovery (ROM detection, flash)
-├── anykernel.sh                   # Byte-identical copy of the template (build uses the template)
 ├── CHANGELOG.md                   # Release notes (current). README.md is STALE
 ├── monitor_perf.sh                # Host-side live monitor over adb (FPS, CPU/GPU, temps, profile)
 ├── tools/hostcc                   # Host gcc wrapper used as HOSTCC
@@ -148,8 +146,8 @@ partition and a known-good kernel zip at hand.
 ### Shell (build.sh, anykernel.sh, module)
 - `anykernel.sh` and module scripts run on the phone under recovery/Android `sh`
   (busybox/toybox). No bash-isms there.
-- Edit `anykernel_template/anykernel.sh`, then copy to root `anykernel.sh` in the same
-  commit (they are kept identical).
+- The installer is `anykernel_template/anykernel.sh` (`build.sh` copies it into the
+  AnyKernel3 tree). There is no second copy to keep in sync.
 
 ---
 
@@ -198,7 +196,6 @@ These come from the owner and override generic instincts.
 | **Broken symlink (other device)** | `arch/arm64/boot/dts/vendor/xiaomi/pipa-sm8250-overlay.dts -> ../qcom/pipa-sm8250-overlay.dtsi` dangles; not used by munch | `test -e` |
 | **Toolchain** | Not installed on owner's machine | §2 |
 | **README.md** | Stale (liyafe1997 content: SukiSU 3.2, Proton Clang, `build.sh DEVICE ksu`) | file |
-| **buildall.sh** | Stale: calls `build.sh <dev>` (now defaults to KSU+SuSFS AOSP), so the "no KSU" half isn't no-KSU | file vs `build.sh` case block |
 | **build.sh side effects** | `sed`s `CONFIG_LOCALVERSION` into the tracked defconfig; copies `gpu_profiles/kona-v2-gpu-extreme.dtsi` over tracked `vendor/qcom/kona-v2-gpu.dtsi` (already identical today); writes `/tmp/genheaders`; copies zip to `../../release/` and `/home/kiki/Downloads/` | `build.sh` |
 | **ccache** | `build.sh` exports `CC="ccache gcc"`, but `CC=clang` on the make command line overrides it, so kernel objects are **not** ccached | `build.sh` `MAKE_ARGS` |
 | **Fork & contribution graph** | `origin` is a fork of `Luckyfr1945/…`; fork commits never count on GitHub. Fork default branch is `android15-lineage22-mod` (256 commits behind `stable`) | `gh repo view` |
@@ -220,7 +217,7 @@ These come from the owner and override generic instincts.
   then `grep FOO /tmp/kcfg/.config`.
 - **Phone-side state:** `adb shell su -c 'cat /sys/kernel/ki_profile/*'`,
   `adb shell su -c dmesg`, `adb shell uname -r` (expect `4.19.325-Ki-kernel-v1.5`).
-- **Don't trust:** `README.md`, `buildall.sh`, `/home/kiki/…` paths.
+- **Don't trust:** `README.md`, `/home/kiki/…` paths.
 - **Owner's phone (2026-10-28):** munch on a **HyperOS 4 port**, wants **KSU + SuSFS**.
   Default dev build: `bash build.sh munch ksu miui` (single-variant MIUI zip skips the
   ROM auto-detection in `anykernel.sh`, so a port with odd build props can't be
