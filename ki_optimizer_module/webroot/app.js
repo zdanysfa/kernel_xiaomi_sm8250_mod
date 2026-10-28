@@ -532,7 +532,11 @@ async function applyChanges(silent = false) {
     echo ${dynfsync} > /sys/kernel/dyn_fsync/dyn_fsync_active 2>/dev/null
 
     # 8. Apply Thermal Throttle Guard
-    echo ${thermal} > /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
+    if [ "${thermal}" = "0" ]; then
+      echo 0 > /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
+    else
+      echo 1 > /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
+    fi
 
     # 9. Apply TCP Congestion
     echo "${tcp}" > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null
@@ -577,12 +581,37 @@ async function applyChanges(silent = false) {
 async function refreshDaemonState() {
   try {
     const { stdout } = await exec(`
+      OUT=""
       if command -v ki_daemon >/dev/null 2>&1; then
-        ki_daemon status
+        OUT="$(ki_daemon status 2>/dev/null)"
       elif [ -x "/data/adb/modules/ki_optimizer/bin/ki_daemon" ]; then
-        /data/adb/modules/ki_optimizer/bin/ki_daemon status
+        OUT="$(/data/adb/modules/ki_optimizer/bin/ki_daemon status 2>/dev/null)"
+      fi
+      if echo "$OUT" | grep -q '"games"'; then
+        echo "$OUT"
       else
-        echo '{"running": false}'
+        CONF="/sdcard/ki_daemon.conf"
+        [ ! -f "$CONF" ] && CONF="/data/adb/modules/ki_optimizer/ki_daemon.conf"
+        ENABLED=1
+        DEF_PROF=1
+        GAME_PROF=2
+        AUTO_BYPASS=1
+        AUTO_MGLRU=1
+        GAMES_JSON="[]"
+        if [ -f "$CONF" ]; then
+          [ "$(grep -E '^DAEMON_ENABLED=' "$CONF" | cut -d'=' -f2 | tr -d ' \"\r')" = "0" ] && ENABLED=0
+          dp="$(grep -E '^DEFAULT_PROFILE=' "$CONF" | cut -d'=' -f2 | tr -d ' \"\r')"
+          [ -n "$dp" ] && DEF_PROF=$dp
+          gp="$(grep -E '^GAME_PROFILE=' "$CONF" | cut -d'=' -f2 | tr -d ' \"\r')"
+          [ -n "$gp" ] && GAME_PROF=$gp
+          [ "$(grep -E '^AUTO_BYPASS(_CHARGING)?=' "$CONF" | cut -d'=' -f2 | tr -d ' \"\r')" = "0" ] && AUTO_BYPASS=0
+          [ "$(grep -E '^AUTO_MGLRU=' "$CONF" | cut -d'=' -f2 | tr -d ' \"\r')" = "0" ] && AUTO_MGLRU=0
+          g_raw="$(grep -E '^GAMES=' "$CONF" | cut -d'=' -f2- | tr -d ' \"\r')"
+          if [ -n "$g_raw" ]; then
+            GAMES_JSON=$(echo "$g_raw" | awk -F',' '{for(i=1;i<=NF;i++) if($i!="") printf "\\"%s\\"%s", $i, (i<NF?",":"")}' | sed 's/^/[/' | sed 's/$/]/')
+          fi
+        fi
+        echo "{\\"running\\":false,\\"daemon_enabled\\":$([ $ENABLED -eq 1 ] && echo true || echo false),\\"default_profile\\":$DEF_PROF,\\"game_profile\\":$GAME_PROF,\\"auto_bypass\\":$([ $AUTO_BYPASS -eq 1 ] && echo true || echo false),\\"auto_mglru\\":$([ $AUTO_MGLRU -eq 1 ] && echo true || echo false),\\"games\\":$GAMES_JSON}"
       fi
     `);
 
@@ -840,13 +869,32 @@ btnApply?.addEventListener("click", () => {
 // Daemon Listeners
 toggleDaemonMaster?.addEventListener("change", async (e) => {
   const enabled = e.target.checked ? "1" : "0";
-  await setDaemonConfig("DAEMON_ENABLED", enabled);
-  if (e.target.checked) {
-    await exec("nohup /data/adb/modules/ki_optimizer/bin/ki_daemon run >/dev/null 2>&1 &");
-  } else {
-    await exec("if command -v ki_daemon >/dev/null 2>&1; then ki_daemon stop; else /data/adb/modules/ki_optimizer/bin/ki_daemon stop; fi");
+  try {
+    if (e.target.checked) {
+      await exec(`
+        if command -v ki_daemon >/dev/null 2>&1; then
+          ki_daemon set DAEMON_ENABLED 1
+          ki_daemon start
+        elif [ -x "/data/adb/modules/ki_optimizer/bin/ki_daemon" ]; then
+          /data/adb/modules/ki_optimizer/bin/ki_daemon set DAEMON_ENABLED 1
+          /data/adb/modules/ki_optimizer/bin/ki_daemon start
+        fi
+      `);
+      showToast("Auto Game Turbo activated");
+    } else {
+      await exec(`
+        if command -v ki_daemon >/dev/null 2>&1; then
+          ki_daemon set DAEMON_ENABLED 0
+        elif [ -x "/data/adb/modules/ki_optimizer/bin/ki_daemon" ]; then
+          /data/adb/modules/ki_optimizer/bin/ki_daemon set DAEMON_ENABLED 0
+        fi
+      `);
+      showToast("Auto Game Turbo paused");
+    }
+  } catch (err) {
+    showToast("Failed to toggle Auto Game Turbo", true);
   }
-  refreshDaemonState();
+  setTimeout(refreshDaemonState, 350);
 });
 
 toggleAutoBypass?.addEventListener("change", (e) => {

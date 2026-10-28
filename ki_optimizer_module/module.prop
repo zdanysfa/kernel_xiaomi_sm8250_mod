@@ -1,6 +1,6 @@
 id=ki_optimizer
 name=Ki-Kernel Settings
-version=v1.3
-versionCode=130
+version=v1.3.1
+versionCode=131
 author=kiki
-description=WebUI & Rust Daemon Controller for Ki-Kernel: Auto Game Turbo switcher (Fixed Bypass Charging rapid toggling/flapping via multi-tier SMB5 power detection), MGLRU, Fast Charge, Wakelock Blocker, Dynamic Fsync, Thermal Guard & BBRv3 via KernelSU WebUI (v1.3).
+description=WebUI & Rust Daemon Controller for Ki-Kernel: Auto Game Turbo switcher (Fixed Bypass Charging rapid toggling/flapping via multi-tier SMB5 power detection), MGLRU, Fast Charge, Wakelock Blocker, Dynamic Fsync, Thermal Guard & BBRv3 via KernelSU WebUI (v1.3.1).

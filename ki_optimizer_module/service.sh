@@ -43,6 +43,7 @@ chmod 666 /sys/class/power_supply/battery/bypass_charging 2>/dev/null
 chmod 666 /sys/class/power_supply/battery/input_suspend 2>/dev/null
 chmod 666 /sys/kernel/wakelock_blocker/* 2>/dev/null
 chmod 666 /sys/devices/virtual/misc/boeffla_wakelock_blocker/* 2>/dev/null
+chmod 666 /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
 
 # Apply configured tweaks
 if [ -x "$MODDIR/bin/ki" ]; then
@@ -52,5 +53,7 @@ fi
 # Launch Ki-Daemon (Rust Auto Game Turbo & Background Controller)
 if [ -x "$MODDIR/bin/ki_daemon" ]; then
     killall ki_daemon 2>/dev/null
-    nohup "$MODDIR/bin/ki_daemon" run >/dev/null 2>&1 &
+    rm -f /data/adb/modules/ki_optimizer/daemon.pid /data/adb/modules/ki_optimizer/daemon.status 2>/dev/null
+    "$MODDIR/bin/ki_daemon" start >/dev/null 2>&1 || ( "$MODDIR/bin/ki_daemon" run >/dev/null 2>&1 & )
 fi
+

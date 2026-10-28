@@ -5,7 +5,7 @@ SKIPUNZIP=0
 
 KERNEL_VER="$(uname -r)"
 
-ui_print "  Ki-Kernel Settings v1.3 (Rust Daemon v1.1)"
+ui_print "  Ki-Kernel Settings v1.3.1 (Rust Daemon v1.1)"
 
 # Strict Ki-Kernel Verification
 is_ki_kernel=0
