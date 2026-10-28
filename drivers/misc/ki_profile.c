@@ -63,7 +63,6 @@ static const char * const profile_names[] = {
 	[KI_PROFILE_PERFORMANCE] = "performance",
 };
 
-extern int vm_swappiness;
 extern int watermark_scale_factor;
 extern int sysctl_compact_unevictable_allowed;
 extern int sysctl_vfs_cache_pressure;
@@ -282,7 +281,6 @@ struct ki_profile_tune {
 	unsigned int up_migrate, down_migrate;
 	unsigned int grp_up_migrate, grp_down_migrate;
 	unsigned int window_stats_policy; /* 1 = MAX, 2 = MAX_RECENT_AVG */
-	int swappiness;
 	int wmark_scale;
 	int vfs_cache_pressure;
 };
@@ -305,7 +303,6 @@ static const struct ki_profile_tune ki_tunes[KI_PROFILE_MAX] = {
 	 * RTG boost on Silver (979MHz) & Gold (1.05GHz) ensures smooth 60/120Hz UI without black screens.
 	 * Zero floor frequency (floor_freq = 0) enables full idle drop to 300MHz baseline.
 	 * Zero iowait boost prevents I/O reads/downloads from waking high clock states.
-	 * Swappiness 40 minimizes zRAM compression CPU cycles to conserve battery.
 	 * VFS cache pressure 60 keeps dentries cached, avoiding flash I/O wakeups.
 	 */
 	[KI_PROFILE_BATTERY] = {
@@ -318,7 +315,7 @@ static const struct ki_profile_tune ki_tunes[KI_PROFILE_MAX] = {
 		.up_migrate = 98, .down_migrate = 90,
 		.grp_up_migrate = 98, .grp_down_migrate = 90,
 		.window_stats_policy = 2,
-		.swappiness = 40, .wmark_scale = 10, .vfs_cache_pressure = 60,
+		.wmark_scale = 10, .vfs_cache_pressure = 60,
 	},
 	/*
 	 * Balanced (Daily Driver - v1.3 Adem Anyem & Smooth 120Hz Efficiency):
@@ -336,7 +333,6 @@ static const struct ki_profile_tune ki_tunes[KI_PROFILE_MAX] = {
 	 * Zero floor frequency (floor_freq = 0) enables full idle drop down to 300MHz.
 	 * Zero iowait boost (iowait_boost_max = 0) prevents background streaming/downloads from spiking clocks.
 	 * Capping Gold to 2.05GHz and Prime to 2.36GHz chops off high-voltage thermal walls.
-	 * Swappiness 50 balances memory pressure and zRAM compression load efficiently.
 	 */
 	[KI_PROFILE_BALANCED] = {
 		.cl = {
@@ -348,7 +344,7 @@ static const struct ki_profile_tune ki_tunes[KI_PROFILE_MAX] = {
 		.up_migrate = 95, .down_migrate = 85,
 		.grp_up_migrate = 95, .grp_down_migrate = 85,
 		.window_stats_policy = 2,
-		.swappiness = 50, .wmark_scale = 12, .vfs_cache_pressure = 70,
+		.wmark_scale = 12, .vfs_cache_pressure = 70,
 	},
 	/*
 	 * Performance / Gaming Turbo (Zero Frame Drop & Rock-Solid FPS):
@@ -367,7 +363,7 @@ static const struct ki_profile_tune ki_tunes[KI_PROFILE_MAX] = {
 	 * bursts without latency from averaging.
 	 * Eager game thread promotion (up_migrate 55/40, grp 65/50) locks render pipelines to Big cores.
 	 * Uncapped hardware burst maximums (Silver 1.80GHz, Gold 2.42GHz, Prime 3.19GHz).
-	 * Memory tuning: swappiness 20 (avoids mid-game zRAM swap), watermark_scale 25 (prevents direct reclaim allocstall pauses),
+	 * Memory tuning: watermark_scale 25 (prevents direct reclaim allocstall pauses),
 	 * and vfs_cache_pressure 50 (keeps game asset textures cached in RAM).
 	 * Thermal bypass active with Thermal Auto-Guard watching at 47°C skin / 45°C batt / 85°C die.
 	 */
@@ -384,7 +380,7 @@ static const struct ki_profile_tune ki_tunes[KI_PROFILE_MAX] = {
 		.up_migrate = 55, .down_migrate = 40,
 		.grp_up_migrate = 65, .grp_down_migrate = 50,
 		.window_stats_policy = 1,
-		.swappiness = 20, .wmark_scale = 25, .vfs_cache_pressure = 50,
+		.wmark_scale = 25, .vfs_cache_pressure = 50,
 	},
 };
 
@@ -499,7 +495,6 @@ static int apply_ki_profile(int mode, bool force)
 		ut = &ki_tunes[user_mode];
 
 		ki_cpufreq_reset_idle_floors(user_mode);
-		vm_swappiness = ut->swappiness;
 		watermark_scale_factor = ut->wmark_scale;
 		watermark_boost_factor = 0;
 		sysctl_compact_unevictable_allowed = 0;
