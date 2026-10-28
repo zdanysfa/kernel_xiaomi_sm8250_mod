@@ -50,7 +50,6 @@ apply_config() {
         local throt=$(grep -E "^THERMAL_THROTTLE=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
         local dyn_fsync=$(grep -E "^DYNAMIC_FSYNC=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
         local tcp=$(grep -E "^TCP_CONGESTION=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
-        local swap=$(grep -E "^SWAPPINESS=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
         local vfs=$(grep -E "^VFS_CACHE_PRESSURE=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
         local sched=$(grep -E "^IO_SCHEDULER=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
 
@@ -71,7 +70,6 @@ apply_config() {
             echo "$wl" > /sys/devices/virtual/misc/boeffla_wakelock_blocker/wakelock_blocker 2>/dev/null
         fi
         [ -n "$tcp" ] && echo "$tcp" > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null
-        [ -n "$swap" ] && echo "$swap" > /proc/sys/vm/swappiness 2>/dev/null
         [ -n "$vfs" ] && echo "$vfs" > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
         if [ -n "$sched" ]; then
             for q in /sys/block/sd*/queue/scheduler /sys/block/mmcblk*/queue/scheduler; do

@@ -81,9 +81,6 @@ const mglruBtns = [
 ];
 let currentMglruMode = 1;
 
-const rowSwappiness = document.getElementById("row-swappiness");
-const rangeSwappiness = document.getElementById("range-swappiness");
-const valSwappiness = document.getElementById("val-swappiness");
 
 const rowBypass = document.getElementById("row-bypass");
 const toggleBypass = document.getElementById("toggle-bypass");
@@ -359,7 +356,6 @@ async function refreshState() {
         VAL_THERMAL="$(cat /sys/kernel/ki_profile/thermal_throttle 2>/dev/null || echo '1')"
       fi
 
-      VAL_SWAP="$(cat /proc/sys/vm/swappiness 2>/dev/null || echo '130')"
       VAL_TCP="$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null || echo 'cubic')"
 
       echo "IS_KI=$IS_KI"
@@ -382,7 +378,6 @@ async function refreshState() {
       echo "VAL_DYNSYNC=$VAL_DYNSYNC"
       echo "HAS_THERMAL=$HAS_THERMAL"
       echo "VAL_THERMAL=$VAL_THERMAL"
-      echo "VAL_SWAP=$VAL_SWAP"
       echo "VAL_TCP=$VAL_TCP"
     `);
 
@@ -429,11 +424,6 @@ async function refreshState() {
     updateFeatureRow(rowDynFsync, toggleDynFsync, badgeDynFsync, props["HAS_DYNSYNC"] === "1", props["VAL_DYNSYNC"] === "1", "Active", "Off");
     updateFeatureRow(rowThermal, toggleThermal, badgeThermal, props["HAS_THERMAL"] === "1", props["VAL_THERMAL"] === "1", "Active", "Bypass");
 
-    if (rangeSwappiness && props["VAL_SWAP"]) {
-      rangeSwappiness.value = props["VAL_SWAP"];
-      if (valSwappiness) valSwappiness.textContent = props["VAL_SWAP"];
-    }
-
     if (selectTcp && props["VAL_TCP"]) {
       selectTcp.value = props["VAL_TCP"];
       if (badgeTcp) badgeTcp.textContent = props["VAL_TCP"];
@@ -455,7 +445,6 @@ async function applyChanges(silent = false) {
   const wakelock = toggleWakelock?.checked ? 1 : 0;
   const dynfsync = toggleDynFsync?.checked ? 1 : 0;
   const thermal = toggleThermal?.checked ? 1 : 0;
-  const swap = rangeSwappiness ? rangeSwappiness.value : 130;
   const tcp = selectTcp ? selectTcp.value : "cubic";
 
   const script = `
@@ -501,9 +490,6 @@ async function applyChanges(silent = false) {
     # 9. Apply TCP Congestion
     echo "${tcp}" > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null
 
-    # 10. Apply Swappiness
-    echo ${swap} > /proc/sys/vm/swappiness 2>/dev/null
-
     # 11. Persist to /sdcard/ki_optimizer.conf
     CONF="/sdcard/ki_optimizer.conf"
     if [ -f "$CONF" ]; then
@@ -518,7 +504,6 @@ async function applyChanges(silent = false) {
       sed -i -E "s/^THERMAL_THROTTLE=.*/THERMAL_THROTTLE=${thermal}/" "$CONF" 2>/dev/null
       sed -i -E "s/^DYNAMIC_FSYNC=.*/DYNAMIC_FSYNC=${dynfsync}/" "$CONF" 2>/dev/null
       sed -i -E "s/^TCP_CONGESTION=.*/TCP_CONGESTION=\\"${tcp}\\"/" "$CONF" 2>/dev/null
-      sed -i -E "s/^SWAPPINESS=.*/SWAPPINESS=${swap}/" "$CONF" 2>/dev/null
     fi
   `;
 
@@ -556,11 +541,6 @@ mglruBtns.forEach(btn => {
       setMglruUI(mode, true);
     });
   }
-});
-
-// Instant Slider Value Reflection
-rangeSwappiness?.addEventListener("input", (e) => {
-  if (valSwappiness) valSwappiness.textContent = e.target.value;
 });
 
 // Optimistic Switch Status Badge Updates
