@@ -37,6 +37,18 @@ Lost with the private pins (from the v1.5 notes; not in the parent tree, verifie
 - FinaSU ioctl compat, dynamic-manager return-code fix, and probably 32-bit userspace
   compat and per-app network isolation (**inferred**).
 
+Where they came from (verified 2026-10-28 by diffing strings of the Telegram v1.5
+Universal Image against ours): **`LyraVoid/FinaSU`** (`master`), which has
+`kernel/feature/{netisolate,mount_view_filter,avc_spoof}.c`, `kernel/manager/dynamic_manager.c`
+and a manager table with KernelSU, KowSU, KernelSU-Next, ReSukiSU, SukiSU, MKSU, RKSU,
+xxKSU. The v1.5 Image carries those strings (`netisolate:`, `mount_view_filter:`,
+`SET_DYNAMIC_MANAGER_FINASU_24B`, …) and 5 extra manager hashes; ours has none. No
+non-KernelSU log string differs, so the parent tree matches v1.5 (inferred).
+FinaSU and BakaSU split from tiann/KernelSU at `203cd4d7` (2025-03-02); since then BakaSU
+has 2683 commits and FinaSU 1205, so these are ports, not clean cherry-picks. FinaSU's
+feature history: `git log 203cd4d7..finasu/master -- kernel/feature/` (11 commits for
+netisolate/mount_view_filter/avc_spoof).
+
 To bring them back: fork BakaSU under `zdanysfa`, add them as our own commits, point
 `.gitmodules` at the fork, bump the gitlink (owner approval). Take each manager's
 expected size/hash from that manager's own kernel source, not from forum posts.

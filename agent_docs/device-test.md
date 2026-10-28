@@ -40,7 +40,9 @@ Wi-Fi/hotspot/USB tethering, root manager detects KernelSU.
 | Root missing | Manager UAPI mismatch; see [kernelsu-susfs.md](kernelsu-susfs.md) §5 |
 | Hot / drains | `monitor_perf.sh`, `cat /sys/kernel/ki_profile/*`, compare with previous version |
 
-Running config on the phone: `adb shell su -c 'zcat /proc/config.gz' > phone.config`
-(`CONFIG_IKCONFIG_PROC=y`).
+`/proc/config.gz` is **not** the running config. `kernel/Makefile:136+` embeds a stock
+Xiaomi defconfig (`<dev>_stock-defconfig`, "4.19.157 … -perf") to hide the custom kernel,
+so `scripts/extract-ikconfig` on our Image returns that stock file too. The real config is
+`out/.config` from the build that produced the zip.
 
 Report back with: exact zip name, ROM + version, what was done, and the log output.

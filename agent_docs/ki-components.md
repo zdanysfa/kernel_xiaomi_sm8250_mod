@@ -51,32 +51,25 @@ applies: measure first.
 
 Charger and GPU-table changes are hardware-safety code (AGENTS.md §6 rule 3).
 
-## 3. `ki_optimizer_module/` (KernelSU/Magisk module, "Ki-Kernel Settings" v1.3)
+## 3. `ki_optimizer_module/` (KernelSU/Magisk module, "Ki-Kernel Settings" v1.4)
 
 - `customize.sh`: install; aborts unless `uname -r` contains `ki-kernel` or the
-  `ki_profile` nodes exist. Copies `ki_optimizer.conf` to `/sdcard/`.
-- `service.sh`: on boot, `chmod 666` the tunable nodes, run `ki reload`, start
-  `ki_daemon run`.
+  `ki_profile` nodes exist. Copies `ki_optimizer.conf` to `/sdcard/`. Stops and cleans
+  up the v1.3.x `ki_daemon` if one is running.
+- `service.sh`: on boot, link `ki` into the root PATH and run `ki reload`. Node
+  permissions stay as the kernel set them (WebUI and `ki` run as root).
 - `ki_optimizer.conf`: user config (`KI_PROFILE`, `MGLRU_MODE`, `BYPASS_CHARGING`,
   `SCREEN_ON_FAST_CHARGE`, `FORCE_FAST_CHARGE`, …).
-- `bin/ki`: `/system/bin/sh` CLI: `menu|status|json|mglru|bypass|fastcharge|reload|daemon|help`.
-- `bin/ki_daemon`: **prebuilt** static aarch64 ELF built from `ki_daemon/`.
+- `bin/ki`: `/system/bin/sh` CLI: `menu|status|json|mglru|bypass|fastcharge|reload|help`.
 - `webroot/`: KernelSU WebUI (`index.html`, `app.js`, `style.css`).
 
 How the module zip is packed is **unverified** (not done by `build.sh`).
 
-## 4. `ki_daemon/` (Rust, v1.1.0)
+## 4. `ki_daemon/` (removed in module v1.4)
 
-Auto Game Turbo: watches the foreground app, switches `ki_profile` to performance and
-handles bypass charging while a listed game runs, with debounce
-(`EXIT_DEBOUNCE_POLLS`, `PLUG_DEBOUNCE_POLLS`, 30 s screen-off grace).
-Commands: `run | status | stop | add-game | remove-game`.
-Files: `/sdcard/ki_daemon.conf`, `/data/adb/modules/ki_optimizer/{ki_daemon.conf,daemon.pid,daemon.status}`,
-`/dev/ki_daemon.engaged`.
-
-Cross-compile recipe is **unverified**. A plausible one (to confirm before relying on it):
-`rustup target add aarch64-linux-android` + Android NDK linker, or
-`aarch64-unknown-linux-musl` for a static binary (the shipped one is static).
+The Rust auto game turbo daemon was deleted on 2026-10-28. It cached the profile and
+overwrote manual WebUI switches, and toggled bypass charging and MGLRU on its own.
+History: `git log -- ki_daemon/`.
 
 ## 5. `anykernel_template/anykernel.sh`
 
