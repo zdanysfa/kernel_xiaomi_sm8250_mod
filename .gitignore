@@ -85,6 +85,8 @@ modules.builtin
 !.mailmap
 !.cocciconfig
 !.clang-format
+!.gitmodules
+!.github/
 
 #
 # Generated include files
