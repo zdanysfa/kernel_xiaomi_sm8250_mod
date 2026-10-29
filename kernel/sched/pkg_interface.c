@@ -682,13 +682,6 @@ static void reset_fb(int window_idx)
 		free_uid(user);
 	}
 
-	for (i = 0; i < MAX_CLUSTER; i++) {
-		user->pkg.front_runtime[HISTORY_ITMES + 1][i] =
-			user->pkg.front_runtime[HISTORY_ITMES][i];
-		user->pkg.back_runtime[HISTORY_ITMES + 1][i] =
-			user->pkg.back_runtime[HISTORY_ITMES][i];
-	}
-
 	package_runtime_info[fbindex].update_time = get_jiffies_64();
 }
 
