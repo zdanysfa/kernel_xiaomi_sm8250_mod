@@ -396,9 +396,11 @@ if [ "$TARGET_OS" == "miui" ] || [ "$TARGET_OS" == "coloros" ] || [ "$TARGET_OS"
         -d SCHEDSTATS \
         -d DEBUG_INFO
 
-    # Memory debugging for short test sessions only (KI_MEMDEBUG=1): KASAN
-    # reports out-of-bounds and use-after-free in dmesg, kmemleak lists
-    # leaks in /sys/kernel/debug/kmemleak. Both slow the phone down a lot.
+    # Memory and locking debug for short test sessions only (KI_MEMDEBUG=1):
+    # KASAN reports out-of-bounds and use-after-free in dmesg, kmemleak lists
+    # leaks in /sys/kernel/debug/kmemleak, lockdep reports lock order
+    # inversions before they deadlock, DEBUG_ATOMIC_SLEEP catches sleeping in
+    # atomic context. All of it slows the phone down a lot.
     if [ "$KI_MEMDEBUG" = "1" ]; then
         scripts/config --file out/.config \
             -e KASAN \
@@ -406,7 +408,9 @@ if [ "$TARGET_OS" == "miui" ] || [ "$TARGET_OS" == "coloros" ] || [ "$TARGET_OS"
             -e KASAN_OUTLINE \
             -e DEBUG_FS \
             -e DEBUG_KMEMLEAK \
-            --set-val DEBUG_KMEMLEAK_EARLY_LOG_SIZE 16000
+            --set-val DEBUG_KMEMLEAK_EARLY_LOG_SIZE 16000 \
+            -e PROVE_LOCKING \
+            -e DEBUG_ATOMIC_SLEEP
     fi
 
     make $MAKE_ARGS olddefconfig

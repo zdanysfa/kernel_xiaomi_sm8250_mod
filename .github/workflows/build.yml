@@ -12,7 +12,7 @@ on:
         options: [miui, aosp, coloros, both]
         default: miui
       memdebug:
-        description: KASAN + kmemleak (MIUI only, slow, short tests)
+        description: KASAN + kmemleak + lockdep (MIUI only, slow, short tests)
         type: boolean
         default: false
 
