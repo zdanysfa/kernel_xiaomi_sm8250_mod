@@ -32,7 +32,7 @@
 #define NETLINK_SOCKEV		23	/* Socket Administrative Events */
 #define NETLINK_INET_DIAG	NETLINK_SOCK_DIAG
 #ifdef CONFIG_MILLET
-#define NETLINK_MILLET          29
+#define NETLINK_MILLET          30
 #endif
 
 #if defined(CONFIG_OPLUS_PORT) || defined(CONFIG_E404_OPLUS)

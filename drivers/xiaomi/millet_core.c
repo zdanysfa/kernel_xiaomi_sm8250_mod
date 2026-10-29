@@ -426,6 +426,14 @@ int unregister_millet_hook(int type)
 	return RET_OK;
 }
 
+/*
+ * Netlink unit millet_monitor opens. HyperOS reads it from ro.millet.netlink
+ * in libmillet_comm.so and falls back to 30; anykernel copies a ROM override
+ * to the cmdline as millet_core.netlink=N.
+ */
+static int millet_netlink = NETLINK_MILLET;
+module_param_named(netlink, millet_netlink, int, 0444);
+
 static int __init millet_init(void)
 {
 	int ret = RET_ERR;
@@ -437,9 +445,10 @@ static int __init millet_init(void)
 		.input = recv_handler,
 	};
 
-	millet_sk.sock = netlink_kernel_create(&init_net, NETLINK_MILLET, &cfg);
+	millet_sk.sock = netlink_kernel_create(&init_net, millet_netlink, &cfg);
 	if (!millet_sk.sock) {
-		pr_err("%s: create socket error!\n", __func__);
+		pr_err("%s: create socket on netlink %d failed\n", __func__,
+		       millet_netlink);
 		return ret;
 	}
 
