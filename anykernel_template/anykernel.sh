@@ -184,18 +184,6 @@ rm -f "$AKHOME/dtb" "$AKHOME/dtbo.img" "$AKHOME/dtbo" 2>/dev/null;
 ui_print "- Flashing kernel (boot)...";
 split_boot;
 patch_cmdline "e404_args" "e404_args=${rom_arg:-rom_port},dtbo_oem,dtb_def,batt_def";
-
-# Millet netlink unit: follow the ROM's ro.millet.netlink, else the kernel default (30)
-mount -o ro /system_ext 2>/dev/null;
-millet_nl="";
-for prop in /system_ext/etc/build.prop /product/etc/build.prop /vendor/build.prop; do
-    [ -n "$millet_nl" ] || millet_nl="$(file_getprop "$prop" ro.millet.netlink 2>/dev/null)";
-done;
-case "$millet_nl" in
-    ''|*[!0-9]*) patch_cmdline "millet_core.netlink" "";;
-    *) ui_print "  Millet netlink: $millet_nl (from ROM)";
-       patch_cmdline "millet_core.netlink" "millet_core.netlink=$millet_nl";;
-esac;
 flash_boot;
 
 # 2. Flash DTB to vendor_boot partition (Extreme UV + OC 683 MHz GPU table)

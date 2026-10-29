@@ -141,7 +141,7 @@ int millet_sendto_user(struct task_struct *tsk, struct millet_data *data,
 	if (millet_debug)
 		dump_send_msg(payload);
 
-	ret = nlmsg_unicast(sk->sock, skb, monitor_port);
+	ret = nlmsg_unicast(READ_ONCE(sk->sock), skb, monitor_port);
 	if (ret >= 0) {
 		if (millet_debug)
 			pr_info("nlmsg_unicast snd msg success\n");
@@ -236,6 +236,9 @@ static void recv_handler(struct sk_buff *skb)
 		pr_err("mod %d is not valid!\n", payload->owner);
 		return;
 	}
+
+	/* skb->sk is the kernel socket of the unit userspace talks to */
+	WRITE_ONCE(millet_sk.sock, skb->sk);
 
 	switch (payload->msg_type) {
 	case LOOPBACK_MSG: {
@@ -427,11 +430,13 @@ int unregister_millet_hook(int type)
 }
 
 /*
- * Netlink unit millet_monitor opens. HyperOS reads it from ro.millet.netlink
- * in libmillet_comm.so and falls back to 30; anykernel copies a ROM override
- * to the cmdline as millet_core.netlink=N.
+ * Netlink units millet_monitor may open. HyperOS reads the unit from
+ * ro.millet.netlink in libmillet_comm.so and falls back to 30; the munch
+ * HyperOS 4 port sets 31. Listen on both and reply on whichever one valid
+ * messages arrive. millet_core.netlink=N on the cmdline limits it to N.
  */
-static int millet_netlink = NETLINK_MILLET;
+static const int millet_default_units[] = { 30, 31 };
+static int millet_netlink;
 module_param_named(netlink, millet_netlink, int, 0444);
 
 static int __init millet_init(void)
@@ -445,12 +450,20 @@ static int __init millet_init(void)
 		.input = recv_handler,
 	};
 
-	millet_sk.sock = netlink_kernel_create(&init_net, millet_netlink, &cfg);
-	if (!millet_sk.sock) {
-		pr_err("%s: create socket on netlink %d failed\n", __func__,
-		       millet_netlink);
-		return ret;
+	for (i = 0; i < ARRAY_SIZE(millet_default_units); i++) {
+		int unit = millet_netlink ? millet_netlink : millet_default_units[i];
+		struct sock *sock = netlink_kernel_create(&init_net, unit, &cfg);
+
+		if (!sock)
+			pr_err("%s: create socket on netlink %d failed\n",
+			       __func__, unit);
+		else if (!millet_sk.sock)
+			millet_sk.sock = sock;
+		if (millet_netlink)
+			break;
 	}
+	if (!millet_sk.sock)
+		return ret;
 
 	for (i = O_TYPE + 1; i < MILLET_TYPES_NUM; i++) {
 		atomic_set(&millet_sk.mod[i].port, 0);
