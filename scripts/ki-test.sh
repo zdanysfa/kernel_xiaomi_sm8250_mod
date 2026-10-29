@@ -19,8 +19,10 @@ KERNEL_SIGNS='Call trace|soft lockup|blocked for more than|workqueue lockup|BUG:
 mkdir -p "$BASE"
 
 now() { date '+%Y-%m-%d %H:%M:%S'; }
-# uname can be spoofed (SuSFS); /proc/version keeps the real release and build time
-kver() { awk '{print $3}' /proc/version; }
+# SuSFS spoofs uname and /proc/version (fs/proc/version.c); the sysctl copies
+# under /proc/sys/kernel are not hooked, so they show the real build
+kver() { cat /proc/sys/kernel/osrelease; }
+kbuild() { echo "$(kver) $(cat /proc/sys/kernel/version)"; }
 rd() { cat "$1" 2>/dev/null; }
 
 pick_phase() {
@@ -39,7 +41,7 @@ pick_phase() {
 	esac
 	echo "$PHASE" > "$BASE/fase"
 	mkdir -p "$BASE/$PHASE"
-	cat /proc/version > "$BASE/$PHASE/kernel-build.txt"
+	kbuild > "$BASE/$PHASE/kernel-build.txt"
 }
 
 load_phase() {
@@ -47,7 +49,7 @@ load_phase() {
 	if [ -z "$PHASE" ]; then pick_phase; return; fi
 	D="$BASE/$PHASE"
 	# a different kernel build means a new flash: offer to switch phase
-	if [ -f "$D/kernel-build.txt" ] && [ "$(cat /proc/version)" != "$(rd "$D/kernel-build.txt")" ]; then
+	if [ -f "$D/kernel-build.txt" ] && [ "$(kbuild)" != "$(rd "$D/kernel-build.txt")" ]; then
 		echo "Kernel berubah sejak fase $PHASE dimulai (flash baru)."
 		printf "Ganti fase? [y/n]: "; read -r a
 		[ "$a" = y ] && pick_phase
@@ -60,8 +62,8 @@ do_check() {
 	D="$BASE/$PHASE"
 	{
 		echo "== $(now)"
-		cat /proc/version
-		echo "uname (bisa dispoof): $(uname -a)"
+		echo "kernel asli: $(kbuild)"
+		echo "uname (dispoof SuSFS kalau aktif): $(uname -a)"
 		echo "uptime: $(rd /proc/uptime)"
 		echo "max_gpuclk: $(rd $GPU/max_gpuclk)"
 		echo "governor: $(rd /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor) $(rd /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor) $(rd /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor)"
