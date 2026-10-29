@@ -11,6 +11,10 @@ on:
         type: choice
         options: [miui, aosp, coloros, both]
         default: miui
+      memdebug:
+        description: KASAN + kmemleak (MIUI only, slow, short tests)
+        type: boolean
+        default: false
 
 env:
   # Same toolchain as the v1.3-v1.5 releases.
@@ -55,6 +59,7 @@ jobs:
         env:
           VARIANT: ${{ inputs.variant }}
           TARGET_OS: ${{ inputs.target_os }}
+          KI_MEMDEBUG: ${{ inputs.memdebug && '1' || '0' }}
         run: bash build.sh munch "$VARIANT" "$TARGET_OS"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

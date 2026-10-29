@@ -108,6 +108,7 @@ case "$2" in
         VARIANT_TAG="KSU+SUSFS"
         ;;
 esac
+[ "$KI_MEMDEBUG" = "1" ] && VARIANT_TAG="${VARIANT_TAG}-MEMDEBUG"
 
 # Parse Target OS (aosp, miui, coloros, both)
 TARGET_OS="${3:-aosp}"
@@ -394,6 +395,19 @@ if [ "$TARGET_OS" == "miui" ] || [ "$TARGET_OS" == "coloros" ] || [ "$TARGET_OS"
         -d IPC_LOGGING \
         -d SCHEDSTATS \
         -d DEBUG_INFO
+
+    # Memory debugging for short test sessions only (KI_MEMDEBUG=1): KASAN
+    # reports out-of-bounds and use-after-free in dmesg, kmemleak lists
+    # leaks in /sys/kernel/debug/kmemleak. Both slow the phone down a lot.
+    if [ "$KI_MEMDEBUG" = "1" ]; then
+        scripts/config --file out/.config \
+            -e KASAN \
+            -e KASAN_GENERIC \
+            -e KASAN_OUTLINE \
+            -e DEBUG_FS \
+            -e DEBUG_KMEMLEAK \
+            --set-val DEBUG_KMEMLEAK_EARLY_LOG_SIZE 16000
+    fi
 
     make $MAKE_ARGS olddefconfig
     make $MAKE_ARGS KCFLAGS="-O2" -j$(nproc)
