@@ -786,7 +786,7 @@ int dsi_panel_update_backlight(struct dsi_panel *panel,
 			use_count = 10;
 
 		if (use_count-- > 0 && mi_cfg->last_bl_level != bl_lvl)
-			DSI_INFO("set backlight from %d to %d\n",
+			DSI_DEBUG("set backlight from %d to %d\n",
 				mi_cfg->last_bl_level, bl_lvl);
 
 		if (!mi_cfg->in_aod &&mi_cfg->vi_setting_enabled) {
@@ -897,7 +897,7 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	if (panel->host_config.ext_bridge_mode)
 		return 0;
 
-	DSI_INFO("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
+	DSI_DEBUG("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
 
 
 	/* lmi panel must restore to last_bl_level to avoid flash high
