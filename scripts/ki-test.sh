@@ -77,13 +77,14 @@ do_check() {
 	done
 	gpu=$(rd $GPU/max_gpuclk)
 	case "$gpu" in 683000000) gpu_s="OC 683 MHz" ;; '') gpu_s="tidak terbaca" ;; *) gpu_s="stok $((gpu / 1000000)) MHz" ;; esac
-	mil=$(dmesg | grep -c MILLET_EPOLL)
+	# millet_monitor prints this once when its netlink sockets work; crash loops repeat other lines
+	if dmesg | grep -q 'MILLET_EPOLL: all .* sockets registered'; then mil=OK; else mil="belum jalan ($(dmesg | grep -c MILLET_EPOLL) baris)"; fi
 	ksan=$(dmesg | grep -c 'KernelAddressSanitizer initialized')
 	sig=$(dmesg | grep -cE "$KERNEL_SIGNS")
-	note "[cek] $(kver) | GPU $gpu_s | MILLET_EPOLL $mil | KASAN $ksan | tanda kernel di dmesg: $sig"
+	note "[cek] $(kver) | GPU $gpu_s | millet $mil | KASAN $ksan | tanda kernel di dmesg: $sig"
 	[ "$ksan" -gt 0 ] && [ "$PHASE" != D-MEMDEBUG ] && echo "PERINGATAN: ini build MEMDEBUG tapi fase = $PHASE"
 	ls /sys/fs/pstore/ 2>/dev/null | grep -q . && echo "Ada pstore (jejak crash boot sebelumnya), sudah disalin."
-	[ "$mil" -gt 0 ] && dmesg | grep MILLET_EPOLL | tail -3
+	[ "$mil" = OK ] || dmesg | grep MILLET_EPOLL | tail -3
 	[ "$sig" -gt 0 ] && dmesg | grep -E "$KERNEL_SIGNS" | tail -5
 	return 0
 }
