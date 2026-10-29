@@ -113,9 +113,20 @@ bash build.sh <device> [variant] [target_os]
 #   variant   : ksu (default, KSU+SuSFS) | nosusfs (KSU only) | noksu
 #   target_os : aosp (default) | miui | coloros | both  (both = universal zip)
 bash build.sh munch ksu aosp
+
+# Build type and -O level come from the environment (default release, O2):
+#   KI_BUILD : release (no debug options) | debug (lockup detectors, warn only)
+#              | memdebug (debug + KASAN, kmemleak, lockdep, atomic-sleep; slow)
+#   KI_OPT   : O2 | O3 (passed as KCFLAGS, which overrides Kconfig's -O)
+KI_BUILD=debug bash build.sh munch ksu miui
 ```
 
-Output: `./<VARIANT>_Ki-kernel-<OS>-v1.5_munch.zip` (+ copy in `release/`).
+GitHub Actions (`.github/workflows/build.yml`, `workflow_dispatch`) takes the same
+choices as inputs: `variant`, `target_os`, `build_type`, `opt`. The laptop is slow, so
+CI is the usual way to build.
+
+Output: `./<VARIANT>[-DEBUG|-MEMDEBUG][-O3]_Ki-kernel-<OS>-v1.5_munch.zip` (+ copy in
+`release/`). The tag in the name is the only way to tell build types apart later.
 `build.sh` deletes `out/`, `anykernel/`, `build_artifacts/` and generated headers at
 the start of every run, so every build is a full rebuild.
 
@@ -222,10 +233,10 @@ effect.
 1. `scripts/checkpatch.pl --no-tree -f <file>`: no new warnings on lines you touched.
 2. `scripts/ki-analyze.sh <file.c>...` (clang static analyzer, needs a configured
    `out/`): no new findings in the touched functions.
-3. `bash build.sh munch ksu miui` or the GitHub workflow produced a zip.
+3. `KI_BUILD=debug bash build.sh munch ksu miui` or the GitHub workflow produced a zip.
 4. Risky paths (locks, memory, userspace input, suspend) get a session on the
-   memdebug build: workflow input `memdebug=true` or `KI_MEMDEBUG=1` (KASAN,
-   kmemleak, lockdep, atomic-sleep checks). Read dmesg for any splat.
+   memdebug build (`build_type=memdebug` / `KI_BUILD=memdebug`: KASAN, kmemleak,
+   lockdep, atomic-sleep checks). Read dmesg for any splat.
 5. On the phone (owner flashes): `dmesg`, and after a freeze or reboot
    `/sys/fs/pstore/console-ramoops-0`.
 
@@ -294,7 +305,8 @@ These come from the owner and override generic instincts.
 - **Read first for a task:** `CHANGELOG.md` (what exists), then the `agent_docs/` file
   for the area. `git log --oneline -- <path>` shows why code looks the way it does;
   the previous dev wrote descriptive subjects.
-- **Build:** `bash build.sh munch ksu miui` (owner's ROM). Fresh clone: `git submodule update --init` first.
+- **Build:** `KI_BUILD=debug bash build.sh munch ksu miui` (owner's ROM), or
+  `gh workflow run build.yml --ref <branch> -f variant=ksu -f target_os=miui -f build_type=debug`. Fresh clone: `git submodule update --init` first.
 - **Config check without full build:** `make ARCH=arm64 O=/tmp/kcfg munch_defconfig`
   then `grep FOO /tmp/kcfg/.config`.
 - **`/proc/config.gz` lies in MIUI builds:** `kernel/Makefile` embeds
@@ -305,7 +317,7 @@ These come from the owner and override generic instincts.
   `adb shell su -c dmesg`, `adb shell uname -r` (expect `4.19.325-Ki-kernel-v1.5`).
 - **Don't trust:** `README.md`, `/home/kiki/…` paths.
 - **Owner's phone (2026-10-28):** munch on a **HyperOS 4 port**, wants **KSU + SuSFS**.
-  Default dev build: `bash build.sh munch ksu miui` (single-variant MIUI zip skips the
+  Default dev build: `KI_BUILD=debug bash build.sh munch ksu miui` (single-variant MIUI zip skips the
   ROM auto-detection in `anykernel.sh`, so a port with odd build props can't be
   mis-detected as AOSP → black screen). Ask before any flash or push.
 
@@ -336,7 +348,9 @@ Identity = global git config (`kkzaadev <zizuukw@gmail.com>`); don't override pe
 ### Release
 A release = bump `KERNEL_VERSION` in `build.sh` (it also rewrites `CONFIG_LOCALVERSION`
 in the defconfig), add a section at the top of `CHANGELOG.md`, commit as
-`release: Ki-kernel vX.Y for POCO F4 (munch)`, build the zips the owner wants.
+`release: Ki-kernel vX.Y for POCO F4 (munch)`, build the zips the owner wants with
+`build_type=release` (`KI_BUILD=release`, the default). A zip with `-DEBUG` or
+`-MEMDEBUG` in its name is never a release.
 
 ### Contribution graph (why it matters here)
 GitHub counts a commit only if it is on the **default branch of a non-fork repo**.

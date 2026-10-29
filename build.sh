@@ -108,7 +108,23 @@ case "$2" in
         VARIANT_TAG="KSU+SUSFS"
         ;;
 esac
-[ "$KI_MEMDEBUG" = "1" ] && VARIANT_TAG="${VARIANT_TAG}-MEMDEBUG"
+# Build type (KI_BUILD): release ships no debug options; debug adds the
+# lockup detectors in warn-only mode; memdebug adds KASAN, kmemleak and
+# lockdep on top for short test sessions. KI_OPT picks the -O level.
+KI_BUILD="${KI_BUILD:-release}"
+KI_OPT="${KI_OPT:-O2}"
+case "$KI_BUILD" in
+    release) ;;
+    debug) VARIANT_TAG="${VARIANT_TAG}-DEBUG" ;;
+    memdebug) VARIANT_TAG="${VARIANT_TAG}-MEMDEBUG" ;;
+    *) echo "Unknown KI_BUILD: $KI_BUILD (release|debug|memdebug)"; exit 1 ;;
+esac
+case "$KI_OPT" in
+    O2) ;;
+    O3) VARIANT_TAG="${VARIANT_TAG}-O3" ;;
+    *) echo "Unknown KI_OPT: $KI_OPT (O2|O3)"; exit 1 ;;
+esac
+echo "Build type: $KI_BUILD, optimization: -$KI_OPT"
 
 # Parse Target OS (aosp, miui, coloros, both)
 TARGET_OS="${3:-aosp}"
@@ -203,6 +219,33 @@ apply_ksu_config() {
             -d KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
             -d KSU_SUSFS_OPEN_REDIRECT
     fi
+}
+
+# Debug options for KI_BUILD=debug|memdebug. Runs last before olddefconfig
+# so it wins over the per-OS blocks (the MIUI block turns DEBUG_FS off).
+apply_build_type_config() {
+    [ "$KI_BUILD" = release ] && return 0
+    # Lockup detectors log a trace and keep running; flip to panic at runtime
+    # with /proc/sys/kernel/{softlockup,hung_task}_panic when hunting a SoD.
+    scripts/config --file out/.config \
+        -e SOFTLOCKUP_DETECTOR \
+        -e DETECT_HUNG_TASK \
+        -e WQ_WATCHDOG \
+        -d BOOTPARAM_SOFTLOCKUP_PANIC \
+        -d BOOTPARAM_HUNG_TASK_PANIC
+    [ "$KI_BUILD" = memdebug ] || return 0
+    # KASAN: out-of-bounds and use-after-free; kmemleak: leaks in
+    # /sys/kernel/debug/kmemleak; lockdep: lock order inversions; atomic
+    # sleep: sleeping calls in atomic context. All of it is slow.
+    scripts/config --file out/.config \
+        -e KASAN \
+        -e KASAN_GENERIC \
+        -e KASAN_OUTLINE \
+        -e DEBUG_FS \
+        -e DEBUG_KMEMLEAK \
+        --set-val DEBUG_KMEMLEAK_EARLY_LOG_SIZE 16000 \
+        -e PROVE_LOCKING \
+        -e DEBUG_ATOMIC_SLEEP
 }
 
 apply_droidspaces_config() {
@@ -329,8 +372,9 @@ if [ "$TARGET_OS" == "aosp" ] || [ "$TARGET_OS" == "both" ] || [ "$TARGET_OS" ==
     make $MAKE_ARGS ${TARGET_DEVICE}_defconfig
     apply_ksu_config
     apply_droidspaces_config
+    apply_build_type_config
     make $MAKE_ARGS olddefconfig
-    make $MAKE_ARGS KCFLAGS="-O2" -j$(nproc)
+    make $MAKE_ARGS KCFLAGS="-$KI_OPT" -j$(nproc)
 
     if [ ! -f "out/arch/arm64/boot/Image" ]; then
         echo "Error: AOSP Image compilation failed."
@@ -373,11 +417,6 @@ if [ "$TARGET_OS" == "miui" ] || [ "$TARGET_OS" == "coloros" ] || [ "$TARGET_OS"
         -e PACKAGE_RUNTIME_INFO \
         -e MILLET \
         -e MIGT \
-        -e SOFTLOCKUP_DETECTOR \
-        -e DETECT_HUNG_TASK \
-        -e WQ_WATCHDOG \
-        -d BOOTPARAM_SOFTLOCKUP_PANIC \
-        -d BOOTPARAM_HUNG_TASK_PANIC \
         -d MIGT_ENERGY_MODEL \
         -d BOOTUP_RECLAIM \
         -d MI_RECLAIM \
@@ -396,25 +435,9 @@ if [ "$TARGET_OS" == "miui" ] || [ "$TARGET_OS" == "coloros" ] || [ "$TARGET_OS"
         -d SCHEDSTATS \
         -d DEBUG_INFO
 
-    # Memory and locking debug for short test sessions only (KI_MEMDEBUG=1):
-    # KASAN reports out-of-bounds and use-after-free in dmesg, kmemleak lists
-    # leaks in /sys/kernel/debug/kmemleak, lockdep reports lock order
-    # inversions before they deadlock, DEBUG_ATOMIC_SLEEP catches sleeping in
-    # atomic context. All of it slows the phone down a lot.
-    if [ "$KI_MEMDEBUG" = "1" ]; then
-        scripts/config --file out/.config \
-            -e KASAN \
-            -e KASAN_GENERIC \
-            -e KASAN_OUTLINE \
-            -e DEBUG_FS \
-            -e DEBUG_KMEMLEAK \
-            --set-val DEBUG_KMEMLEAK_EARLY_LOG_SIZE 16000 \
-            -e PROVE_LOCKING \
-            -e DEBUG_ATOMIC_SLEEP
-    fi
-
+    apply_build_type_config
     make $MAKE_ARGS olddefconfig
-    make $MAKE_ARGS KCFLAGS="-O2" -j$(nproc)
+    make $MAKE_ARGS KCFLAGS="-$KI_OPT" -j$(nproc)
 
     if [ ! -f "out/arch/arm64/boot/Image" ]; then
         echo "Error: Image compilation failed."

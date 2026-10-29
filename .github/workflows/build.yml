@@ -1,4 +1,5 @@
 name: Build kernel
+run-name: "${{ inputs.build_type }} -${{ inputs.opt }} ${{ inputs.variant }}/${{ inputs.target_os }} @ ${{ github.ref_name }}"
 
 on:
   workflow_dispatch:
@@ -11,10 +12,16 @@ on:
         type: choice
         options: [miui, aosp, coloros, both]
         default: miui
-      memdebug:
-        description: KASAN + kmemleak + lockdep (MIUI only, slow, short tests)
-        type: boolean
-        default: false
+      build_type:
+        description: "release: no debug options | debug: lockup detectors (warn only) | memdebug: debug + KASAN, kmemleak, lockdep (slow, short tests)"
+        type: choice
+        options: [debug, release, memdebug]
+        default: debug
+      opt:
+        description: Compiler -O level
+        type: choice
+        options: [O2, O3]
+        default: O2
 
 env:
   # Same toolchain as the v1.3-v1.5 releases.
@@ -59,11 +66,12 @@ jobs:
         env:
           VARIANT: ${{ inputs.variant }}
           TARGET_OS: ${{ inputs.target_os }}
-          KI_MEMDEBUG: ${{ inputs.memdebug && '1' || '0' }}
+          KI_BUILD: ${{ inputs.build_type }}
+          KI_OPT: ${{ inputs.opt }}
         run: bash build.sh munch "$VARIANT" "$TARGET_OS"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: Ki-kernel-munch-${{ inputs.variant }}-${{ inputs.target_os }}
+          name: Ki-kernel-munch-${{ inputs.variant }}-${{ inputs.target_os }}-${{ inputs.build_type }}-${{ inputs.opt }}
           path: ./*_Ki-kernel-*_munch.zip
           if-no-files-found: error
