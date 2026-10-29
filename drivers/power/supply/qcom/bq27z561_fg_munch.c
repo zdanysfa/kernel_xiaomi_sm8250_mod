@@ -958,7 +958,7 @@ static int fg_read_rsoc(struct bq_fg_chip *bq)
 #define HOLD_ONE_PERCENT_COUNT 5
 static int fg_read_system_soc(struct bq_fg_chip *bq)
 {
-	int soc, curr, temp, raw_soc, bat_soc;
+	int soc, curr = 0, temp, raw_soc, bat_soc;
 	static ktime_t last_change_time = -1;
 	static int hold_soc_count;
 	static bool hold_flag = true;
@@ -1566,7 +1566,7 @@ static int fg_get_property(struct power_supply *psy, enum power_supply_property 
 					union power_supply_propval *val)
 {
 	struct bq_fg_chip *bq = power_supply_get_drvdata(psy);
-	int ret, status, rc = 0;
+	int ret, status = POWER_SUPPLY_STATUS_UNKNOWN, rc = 0;
 	u16 flags;
 	int vbat_mv;
 	static bool shutdown_delay_cancel[FG_MAX_INDEX];
@@ -2546,6 +2546,15 @@ static int fg_get_raw_soc(struct bq_fg_chip *bq)
 
 	rm = fg_read_rm(bq);
 	fcc = fg_read_fcc(bq);
+
+	/*
+	 * FCC is 0 when the first FCC read fails (last_fcc starts at 0) or
+	 * the gauge never learned a capacity. Dividing by it is undefined and
+	 * on arm64 yields raw_soc 0, which walks the reported SoC down to 0%
+	 * and shuts the phone off. Use the gauge's own RSOC instead.
+	 */
+	if (fcc <= 0)
+		return fg_read_rsoc(bq) * 100;
 
 	//raw_soc = DIV_ROUND_CLOSEST(rm * 10000 / fcc, 100);
 	raw_soc = rm * 10000 / fcc;
