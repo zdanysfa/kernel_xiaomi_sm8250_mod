@@ -901,7 +901,7 @@ int smblib_set_fastcharge_mode(struct smb_charger *chg, bool enable)
 {
 	union power_supply_propval pval = {0,};
 	int rc = 0;
-	int termi = -220, batt_temp;
+	int termi = -220, batt_temp = 0;
 
 	if (!chg->bms_psy)
 		return 0;
@@ -934,7 +934,9 @@ int smblib_set_fastcharge_mode(struct smb_charger *chg, bool enable)
 	rc = power_supply_get_property(chg->bms_psy,
 				POWER_SUPPLY_PROP_TEMP, &pval);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't get bms capacity:%d\n", rc);
+		/* unknown battery temperature: no FFC, keep the non-FFC float */
+		smblib_err(chg, "Couldn't get bms temp:%d\n", rc);
+		enable = false;
 		goto set_term;
 	}
 	batt_temp = pval.intval;
@@ -2943,8 +2945,7 @@ int smblib_get_prop_batt_health(struct smb_charger *chg,
 				POWER_SUPPLY_PROP_TEMP, &pval);
 		if (rc < 0)
 			val->intval = POWER_SUPPLY_HEALTH_GOOD;
-
-		if (pval.intval < BAT_TEMP_COLD)
+		else if (pval.intval < BAT_TEMP_COLD)
 			val->intval = POWER_SUPPLY_HEALTH_COLD;
 		else if (pval.intval < chg->chg_cool_threshold)
 			val->intval = POWER_SUPPLY_HEALTH_COOL;
@@ -11903,7 +11904,7 @@ static void bms_update_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						bms_update_work);
-	int bms_i2c_error_count;
+	int bms_i2c_error_count = 0;
 	int ret;
 	static int input_suspend = 0;
 	union power_supply_propval val = {0,};
