@@ -14,11 +14,13 @@ GPU=/sys/class/kgsl/kgsl-3d0
 BATT=/sys/class/power_supply/battery
 GAME_DEFAULT_MIN=10
 # dmesg lines that point at the kernel rather than the ROM
-KERNEL_SIGNS='Call trace|soft lockup|blocked for more than|workqueue lockup|BUG:|KASAN:|kmemleak:|possible circular locking|inconsistent lock state|sleeping function called from invalid context|Unable to handle kernel|Internal error|kgsl.*fault|ppdone_timeout|panic'
+KERNEL_SIGNS='Call trace|soft lockup|blocked for more than|workqueue lockup|BUG:|KASAN:|kmemleak:|possible circular locking|inconsistent lock state|sleeping function called from invalid context|Unable to handle kernel|Internal error|kgsl.*fault|ppdone_timeout|Kernel panic'
 
 mkdir -p "$BASE"
 
 now() { date '+%Y-%m-%d %H:%M:%S'; }
+# uname can be spoofed (SuSFS); /proc/version keeps the real release and build time
+kver() { awk '{print $3}' /proc/version; }
 rd() { cat "$1" 2>/dev/null; }
 
 pick_phase() {
@@ -37,7 +39,7 @@ pick_phase() {
 	esac
 	echo "$PHASE" > "$BASE/fase"
 	mkdir -p "$BASE/$PHASE"
-	uname -v > "$BASE/$PHASE/kernel-build.txt"
+	cat /proc/version > "$BASE/$PHASE/kernel-build.txt"
 }
 
 load_phase() {
@@ -45,7 +47,7 @@ load_phase() {
 	if [ -z "$PHASE" ]; then pick_phase; return; fi
 	D="$BASE/$PHASE"
 	# a different kernel build means a new flash: offer to switch phase
-	if [ -f "$D/kernel-build.txt" ] && [ "$(uname -v)" != "$(rd "$D/kernel-build.txt")" ]; then
+	if [ -f "$D/kernel-build.txt" ] && [ "$(cat /proc/version)" != "$(rd "$D/kernel-build.txt")" ]; then
 		echo "Kernel berubah sejak fase $PHASE dimulai (flash baru)."
 		printf "Ganti fase? [y/n]: "; read -r a
 		[ "$a" = y ] && pick_phase
@@ -58,7 +60,8 @@ do_check() {
 	D="$BASE/$PHASE"
 	{
 		echo "== $(now)"
-		uname -a
+		cat /proc/version
+		echo "uname (bisa dispoof): $(uname -a)"
 		echo "uptime: $(rd /proc/uptime)"
 		echo "max_gpuclk: $(rd $GPU/max_gpuclk)"
 		echo "governor: $(rd /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor) $(rd /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor) $(rd /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor)"
@@ -75,9 +78,10 @@ do_check() {
 	mil=$(dmesg | grep -c MILLET_EPOLL)
 	ksan=$(dmesg | grep -c 'KernelAddressSanitizer initialized')
 	sig=$(dmesg | grep -cE "$KERNEL_SIGNS")
-	note "[cek] $(uname -r) | GPU $gpu_s | MILLET_EPOLL $mil | KASAN $ksan | tanda kernel di dmesg: $sig"
+	note "[cek] $(kver) | GPU $gpu_s | MILLET_EPOLL $mil | KASAN $ksan | tanda kernel di dmesg: $sig"
 	[ "$ksan" -gt 0 ] && [ "$PHASE" != D-MEMDEBUG ] && echo "PERINGATAN: ini build MEMDEBUG tapi fase = $PHASE"
 	ls /sys/fs/pstore/ 2>/dev/null | grep -q . && echo "Ada pstore (jejak crash boot sebelumnya), sudah disalin."
+	[ "$mil" -gt 0 ] && dmesg | grep MILLET_EPOLL | tail -3
 	[ "$sig" -gt 0 ] && dmesg | grep -E "$KERNEL_SIGNS" | tail -5
 	return 0
 }
@@ -230,7 +234,7 @@ do_summary() {
 load_phase
 while :; do
 	echo
-	echo "=== Ki-test | fase: $PHASE | $(uname -r) ==="
+	echo "=== Ki-test | fase: $PHASE | $(kver) ==="
 	echo " 1) Cek setelah flash/boot"
 	echo " 2) Rekam game (FPS, suhu, GPU)"
 	echo " 3) Isi skor Geekbench"
