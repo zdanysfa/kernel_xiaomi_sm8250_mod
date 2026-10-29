@@ -49,6 +49,10 @@ Report back with: exact zip name, ROM + version, what was done, and the log outp
 
 ## 4. Test protocol for debug and perf builds
 
+`scripts/ki-test.sh` (copy to the phone, run `su -c sh /sdcard/Download/ki-test.sh` in
+Termux) does all of the steps below from a menu and writes them to
+`/sdcard/ki-test/<phase>/hasil.txt`.
+
 One zip per phase, same phone state (same ROM, apps, brightness, Wi-Fi on), so phases
 can be compared. Zip names carry the build type (`-DEBUG`, `-MEMDEBUG`, `-O3`,
 `-LTO_FULL`); a release zip has none.
