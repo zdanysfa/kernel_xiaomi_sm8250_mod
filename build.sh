@@ -360,6 +360,11 @@ if [ "$TARGET_OS" == "miui" ] || [ "$TARGET_OS" == "coloros" ] || [ "$TARGET_OS"
         -e PACKAGE_RUNTIME_INFO \
         -e MILLET \
         -e MIGT \
+        -e SOFTLOCKUP_DETECTOR \
+        -e DETECT_HUNG_TASK \
+        -e WQ_WATCHDOG \
+        -d BOOTPARAM_SOFTLOCKUP_PANIC \
+        -d BOOTPARAM_HUNG_TASK_PANIC \
         -d MIGT_ENERGY_MODEL \
         -d BOOTUP_RECLAIM \
         -d MI_RECLAIM \
