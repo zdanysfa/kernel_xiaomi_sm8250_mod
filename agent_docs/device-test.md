@@ -46,3 +46,32 @@ so `scripts/extract-ikconfig` on our Image returns that stock file too. The real
 `out/.config` from the build that produced the zip.
 
 Report back with: exact zip name, ROM + version, what was done, and the log output.
+
+## 4. Test protocol for debug and perf builds
+
+One zip per phase, same phone state (same ROM, apps, brightness, Wi-Fi on), so phases
+can be compared. Zip names carry the build type (`-DEBUG`, `-MEMDEBUG`, `-O3`,
+`-LTO_FULL`); a release zip has none.
+
+| Phase | Zip | How long | Measures |
+|---|---|---|---|
+| A | debug, O2 (baseline) | 1 day | smoke, game, overnight drain |
+| B | debug, O3 | 1 day | same as A |
+| C | debug, O3 + full LTO | 1 day, only if it boots | same as A |
+| D | memdebug | 1 to 3 hours, then flash back A | KASAN, kmemleak, lockdep splats |
+
+Per phase: smoke test (§2), one 10 minute session of the same game scene with
+`monitor_perf.sh` (average FPS, jank, peak temperature), Geekbench 3 runs, and battery
+percentage at night and in the morning with the hours in between. Then collect logs on
+the phone into one folder the owner sends over:
+
+```sh
+su -c 'T=/sdcard/ki-test/$(date +%m%d-%H%M); mkdir -p $T; uname -a > $T/info.txt; cat /proc/uptime /sys/class/kgsl/kgsl-3d0/max_gpuclk >> $T/info.txt; cat /sys/kernel/ki_profile/* >> $T/info.txt 2>/dev/null; dmesg > $T/dmesg.txt; cat /sys/fs/pstore/console-ramoops-0 > $T/ramoops.txt 2>/dev/null; dumpsys battery > $T/battery.txt; echo $T'
+```
+
+Phase D also: `echo scan > /sys/kernel/debug/kmemleak; sleep 5; cat /sys/kernel/debug/kmemleak > $T/kmemleak.txt`.
+
+Kernel-side signs in `dmesg`/`ramoops`: `Call trace`, `soft lockup`, `blocked for more than`,
+`workqueue lockup`, `BUG:`, `KASAN:`, `possible circular locking`, `sleeping function
+called from invalid context`, `kgsl` faults. App crashes, `servicemanager` retries and
+`init: ... restarting` loops point at the ROM unless a kernel trace sits next to them.
