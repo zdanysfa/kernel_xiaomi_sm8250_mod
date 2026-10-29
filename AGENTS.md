@@ -118,11 +118,14 @@ bash build.sh munch ksu aosp
 #   KI_BUILD : release (no debug options) | debug (lockup detectors, warn only)
 #              | memdebug (debug + KASAN, kmemleak, lockdep, atomic-sleep; slow)
 #   KI_OPT   : O2 | O3 (passed as KCFLAGS, which overrides Kconfig's -O)
+#   KI_LTO   : unset (AOSP ThinLTO, MIUI none; why MIUI has LTO off is not
+#              documented) | none | thin | full. Not with memdebug (KASAN).
+#              ld.lld runs LTO codegen at its default --lto-O2 whatever KI_OPT is.
 KI_BUILD=debug bash build.sh munch ksu miui
 ```
 
 GitHub Actions (`.github/workflows/build.yml`, `workflow_dispatch`) takes the same
-choices as inputs: `variant`, `target_os`, `build_type`, `opt`. The laptop is slow, so
+choices as inputs: `variant`, `target_os`, `build_type`, `opt`, `lto`. The laptop is slow, so
 CI is the usual way to build.
 
 Output: `./<VARIANT>[-DEBUG|-MEMDEBUG][-O3]_Ki-kernel-<OS>-v1.5_munch.zip` (+ copy in

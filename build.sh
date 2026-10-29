@@ -124,7 +124,17 @@ case "$KI_OPT" in
     O3) VARIANT_TAG="${VARIANT_TAG}-O3" ;;
     *) echo "Unknown KI_OPT: $KI_OPT (O2|O3)"; exit 1 ;;
 esac
-echo "Build type: $KI_BUILD, optimization: -$KI_OPT"
+# KI_LTO: unset keeps each path's default (AOSP ThinLTO from the defconfig,
+# MIUI/ColorOS no LTO); none|thin|full forces it. KASAN can't be combined.
+case "$KI_LTO" in
+    '') ;;
+    none|thin|full) VARIANT_TAG="${VARIANT_TAG}-LTO_${KI_LTO^^}" ;;
+    *) echo "Unknown KI_LTO: $KI_LTO (none|thin|full)"; exit 1 ;;
+esac
+if [ "$KI_BUILD" = memdebug ] && [ -n "$KI_LTO" ] && [ "$KI_LTO" != none ]; then
+    echo "KI_BUILD=memdebug needs KI_LTO unset or none (KASAN excludes LTO)"; exit 1
+fi
+echo "Build type: $KI_BUILD, optimization: -$KI_OPT, LTO: ${KI_LTO:-path default}"
 
 # Parse Target OS (aosp, miui, coloros, both)
 TARGET_OS="${3:-aosp}"
@@ -224,6 +234,11 @@ apply_ksu_config() {
 # Debug options for KI_BUILD=debug|memdebug. Runs last before olddefconfig
 # so it wins over the per-OS blocks (the MIUI block turns DEBUG_FS off).
 apply_build_type_config() {
+    case "$KI_LTO" in
+        none) scripts/config --file out/.config -e LTO_NONE -d LTO_CLANG ;;
+        thin) scripts/config --file out/.config -d LTO_NONE -e LTO_CLANG -e THINLTO ;;
+        full) scripts/config --file out/.config -d LTO_NONE -e LTO_CLANG -d THINLTO ;;
+    esac
     [ "$KI_BUILD" = release ] && return 0
     # Lockup detectors log a trace and keep running; flip to panic at runtime
     # with /proc/sys/kernel/{softlockup,hung_task}_panic when hunting a SoD.
@@ -374,6 +389,7 @@ if [ "$TARGET_OS" == "aosp" ] || [ "$TARGET_OS" == "both" ] || [ "$TARGET_OS" ==
     apply_droidspaces_config
     apply_build_type_config
     make $MAKE_ARGS olddefconfig
+    grep -E '^CONFIG_(LTO_NONE|LTO_CLANG|THINLTO|KASAN|SOFTLOCKUP_DETECTOR)=' out/.config || true
     make $MAKE_ARGS KCFLAGS="-$KI_OPT" -j$(nproc)
 
     if [ ! -f "out/arch/arm64/boot/Image" ]; then
@@ -437,6 +453,7 @@ if [ "$TARGET_OS" == "miui" ] || [ "$TARGET_OS" == "coloros" ] || [ "$TARGET_OS"
 
     apply_build_type_config
     make $MAKE_ARGS olddefconfig
+    grep -E '^CONFIG_(LTO_NONE|LTO_CLANG|THINLTO|KASAN|SOFTLOCKUP_DETECTOR)=' out/.config || true
     make $MAKE_ARGS KCFLAGS="-$KI_OPT" -j$(nproc)
 
     if [ ! -f "out/arch/arm64/boot/Image" ]; then

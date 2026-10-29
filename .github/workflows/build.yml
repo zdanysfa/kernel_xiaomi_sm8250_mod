@@ -1,5 +1,5 @@
 name: Build kernel
-run-name: "${{ inputs.build_type }} -${{ inputs.opt }} ${{ inputs.variant }}/${{ inputs.target_os }} @ ${{ github.ref_name }}"
+run-name: "${{ inputs.build_type }} -${{ inputs.opt }} lto:${{ inputs.lto }} ${{ inputs.variant }}/${{ inputs.target_os }} @ ${{ github.ref_name }}"
 
 on:
   workflow_dispatch:
@@ -22,6 +22,11 @@ on:
         type: choice
         options: [O2, O3]
         default: O2
+      lto:
+        description: "LTO: default keeps the path's own (AOSP thin, MIUI none)"
+        type: choice
+        options: [default, none, thin, full]
+        default: default
 
 env:
   # Same toolchain as the v1.3-v1.5 releases.
@@ -68,10 +73,11 @@ jobs:
           TARGET_OS: ${{ inputs.target_os }}
           KI_BUILD: ${{ inputs.build_type }}
           KI_OPT: ${{ inputs.opt }}
+          KI_LTO: ${{ inputs.lto != 'default' && inputs.lto || '' }}
         run: bash build.sh munch "$VARIANT" "$TARGET_OS"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: Ki-kernel-munch-${{ inputs.variant }}-${{ inputs.target_os }}-${{ inputs.build_type }}-${{ inputs.opt }}
+          name: Ki-kernel-munch-${{ inputs.variant }}-${{ inputs.target_os }}-${{ inputs.build_type }}-${{ inputs.opt }}-lto_${{ inputs.lto }}
           path: ./*_Ki-kernel-*_munch.zip
           if-no-files-found: error
