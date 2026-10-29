@@ -553,10 +553,12 @@ static int ki_apply_effective(bool force)
 
 static unsigned int ki_screen_retry;	/* touched by ki_screen_work_fn and reset on unblank */
 
+#define KI_SCREEN_RETRY_MAX	40
+
 static void ki_screen_requeue(void)
 {
 	/* Screen on: keep trying; Screen off: try 20x 50ms + 20x 1s, then wait for next event */
-	if (READ_ONCE(ki_screen_on) || ki_screen_retry < 40)
+	if (READ_ONCE(ki_screen_on) || ki_screen_retry < KI_SCREEN_RETRY_MAX)
 		queue_delayed_work(system_highpri_wq, &ki_screen_work,
 				   msecs_to_jiffies(ki_screen_retry++ < 20 ? 50 : 1000));
 }
@@ -582,7 +584,13 @@ static void ki_screen_work_fn(struct work_struct *work)
 	ret = ki_apply_effective(false);
 	mutex_unlock(&ki_profile_mutex);
 
-	if (ret == -EBUSY) {
+	/*
+	 * ret > 0: sugov limits failed on some clusters. Seen on screen off
+	 * when the work runs inside a suspend/resume cycle, with the CPUs
+	 * back online but schedutil not restarted yet. Retry a bounded number
+	 * of times so a governor other than schedutil can't loop us forever.
+	 */
+	if (ret == -EBUSY || (ret > 0 && ki_screen_retry < KI_SCREEN_RETRY_MAX)) {
 		ki_screen_requeue();
 	} else {
 		ki_screen_retry = 0;
