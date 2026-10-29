@@ -11,13 +11,25 @@
 #include <linux/sched.h>
 #include <linux/rcupdate.h>
 
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
+#if defined(CONFIG_DEBUG_LOCK_ALLOC) && defined(CONFIG_TASKS_TRACE_RCU)
 
 extern struct lockdep_map rcu_trace_lock_map;
 
 static inline int rcu_read_lock_trace_held(void)
 {
 	return lock_is_held(&rcu_trace_lock_map);
+}
+
+#elif defined(CONFIG_DEBUG_LOCK_ALLOC)
+
+/*
+ * 4.19 has no Tasks Trace RCU, so rcu_trace_lock_map does not exist and
+ * rcu_read_lock_trace() below is a no-op: no trace reader can be held.
+ * Answer 0 so lockdep checks count only plain RCU readers.
+ */
+static inline int rcu_read_lock_trace_held(void)
+{
+	return 0;
 }
 
 #else /* #ifdef CONFIG_DEBUG_LOCK_ALLOC */
