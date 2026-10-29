@@ -143,6 +143,92 @@ partition and a known-good kernel zip at hand.
 - Before using a `CONFIG_*` symbol, prove it exists:
   `grep -rn "^config FOO$" --include=Kconfig .`
 
+### Kernel C: safety rules
+
+Target: munch (SM8250), Linux 4.19.325, **non-GKI**, everything built in-tree and
+mostly built-in (`=y`), ZyC Clang 16. The goal is code that does not freeze,
+panic, leak or drain the battery. If a change can't follow a rule, say which one
+and why in the commit body.
+
+**Know the context of every function.** Process context may sleep. Atomic context
+(IRQ handler, softirq, timer, under a spinlock, preempt or IRQs off) may not: no
+`mutex_lock`, `msleep`, `GFP_KERNEL`, `copy_*_user`, `wait_event*` there. Data shared
+with an IRQ handler needs `spin_lock_irqsave()` on the process side. Don't hold a
+spinlock across anything that can sleep. Notifier callbacks (display, power supply,
+cpufreq) often run in atomic or locked context: queue work, don't do the job inline.
+
+**Locks.** One documented order per subsystem, always taken in that order.
+`ki_profile_mutex` is taken before any cpufreq `policy->rwsem`. Code holding a
+cpufreq lock (e.g. the `scaling_min_freq` store in `cpufreq.c`) may only call
+lockless ki_profile readers such as `ki_get_active_profile()`, never anything
+that takes `ki_profile_mutex`. Don't wait (`cancel_*_sync`, `flush_work`)
+on a work item while holding a lock that work item takes. Lockless reads of shared
+flags use `READ_ONCE`/`WRITE_ONCE`; counters use `atomic_t`/`refcount_t`.
+`down_write_trylock()` or "skip if busy" is not a deadlock fix: it hides the
+inversion and silently drops the update. Find the cycle (lockdep in the memdebug
+build, step 4 below) and fix the order.
+
+**Memory.** Check every allocation. `kzalloc` when the struct can reach userspace.
+Error paths unwind with `goto`, freeing in reverse order; prefer `devm_*` in drivers.
+Balance every get/put (`kref`, `find_user`/`free_uid`, `cpufreq_cpu_get`/`put`). Never
+touch a pointer after it is freed or put, including "one more loop" after the walk
+that released it. Stack is 16 KB: no big arrays on it. Size math from untrusted
+input uses `array_size()` / `check_*_overflow()`.
+
+**Userspace boundary (sysfs, procfs, ioctl, netlink).** Never dereference user
+pointers; `copy_from_user`/`copy_to_user` return the bytes NOT copied, check it.
+Copy once, then validate the kernel copy. Bound every index and length; for uid
+bitmaps cast to `unsigned int` before comparing with the size. Reject unknown
+flags. Zero structs before copying them out. Hash pointers (`%p`), never `%px`.
+New nodes are `0644` or tighter; a `0666` node must have a reason in a comment,
+because any app SELinux lets through can then write or trigger it.
+
+**Errors.** Return negative errno and check every return value, including values
+read from hardware (I2C/SPMI gauge and charger reads fail on worn or replacement
+parts). Pointer APIs: `IS_ERR()`/`PTR_ERR()`, not only NULL. Initialize anything a
+failed read leaves untouched. No `BUG()`/`BUG_ON()`: on a phone that is a reboot.
+Use `WARN_ON_ONCE()` and return an error. A value read from hardware is never a
+divisor without a zero check.
+
+**Lifecycle.** Teardown undoes init in reverse order: `free_irq()`,
+`cancel_work_sync()`, `del_timer_sync()`, `kthread_stop()`, unregister, then free.
+`file_operations` set `.owner = THIS_MODULE`.
+
+**Power.** Every wakeup source acquire has a release on every path; prefer
+`pm_wakeup_event()` with a timeout. Every runtime PM get has a put. Work that runs
+across suspend (system workqueues are not frozen) must expect CPUs offline and
+cpufreq/governors not restarted yet, and retry a bounded number of times. No
+periodic timers or polling that wake the CPU with the screen off.
+
+**Timeouts.** Never wait on hardware or firmware forever: `readl_poll_timeout()`,
+`wait_event_timeout()`, `wait_for_completion_timeout()`, and handle the timeout
+path. Keep IRQ top halves tiny. Long loops in process context call
+`cond_resched()`. Keep preempt/IRQ-off sections short.
+
+**DMA.** No stack or vmalloc memory for DMA. Check `dma_mapping_error()`, use
+`dma_sync_*` around CPU access, `dma_alloc_coherent()` for coherent buffers.
+
+**Logging.** `dev_*`/`pr_*`; `_ratelimited` in hot paths and IRQs. Per-frame,
+per-brightness-step or per-transaction messages are `pr_debug`/`DSI_DEBUG`: the log
+buffer is 512 KB and noise pushes freeze traces out of it.
+
+**Compiler flags.** `build.sh` passes `KCFLAGS="-O2"`, which the top `Makefile`
+appends last (line ~1014), so it overrides any `-O` set by Kconfig. Likewise
+`CONFIG_FRAME_POINTER=y` adds `-fno-omit-frame-pointer` after the arch flags. Check
+the final command line in `out/<dir>/.<file>.o.cmd` before claiming a flag is in
+effect.
+
+**Before calling a C change done** (report what ran and what didn't):
+1. `scripts/checkpatch.pl --no-tree -f <file>`: no new warnings on lines you touched.
+2. `scripts/ki-analyze.sh <file.c>...` (clang static analyzer, needs a configured
+   `out/`): no new findings in the touched functions.
+3. `bash build.sh munch ksu miui` or the GitHub workflow produced a zip.
+4. Risky paths (locks, memory, userspace input, suspend) get a session on the
+   memdebug build: workflow input `memdebug=true` or `KI_MEMDEBUG=1` (KASAN,
+   kmemleak, lockdep, atomic-sleep checks). Read dmesg for any splat.
+5. On the phone (owner flashes): `dmesg`, and after a freeze or reboot
+   `/sys/fs/pstore/console-ramoops-0`.
+
 ### Shell (build.sh, anykernel.sh, module)
 - `anykernel.sh` and module scripts run on the phone under recovery/Android `sh`
   (busybox/toybox). No bash-isms there.
@@ -211,6 +297,10 @@ These come from the owner and override generic instincts.
 - **Build:** `bash build.sh munch ksu miui` (owner's ROM). Fresh clone: `git submodule update --init` first.
 - **Config check without full build:** `make ARCH=arm64 O=/tmp/kcfg munch_defconfig`
   then `grep FOO /tmp/kcfg/.config`.
+- **`/proc/config.gz` lies in MIUI builds:** `kernel/Makefile` embeds
+  `arch/arm64/configs/munch_stock-defconfig` as the IKCONFIG data when
+  `CONFIG_XIAOMI_MIUI=y`, so neither the phone nor `scripts/extract-ikconfig` shows
+  the real config. Check a built Image with `grep -a -c '<string from the code>'`.
 - **Phone-side state:** `adb shell su -c 'cat /sys/kernel/ki_profile/*'`,
   `adb shell su -c dmesg`, `adb shell uname -r` (expect `4.19.325-Ki-kernel-v1.5`).
 - **Don't trust:** `README.md`, `/home/kiki/…` paths.
