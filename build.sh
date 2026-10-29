@@ -124,6 +124,28 @@ echo "Variant       : $VARIANT_TAG"
 echo "Target OS     : $TARGET_OS"
 echo "=========================================================="
 
+# Build the DTB twice: <dest>/dtb with the stock GPU table (installer
+# default) and <dest>/dtb_oc with the OC 683 MHz + undervolt table, picked
+# with Vol+ in anykernel.sh. Extreme is built last so the tracked
+# vendor/qcom/kona-v2-gpu.dtsi is left as committed.
+build_dtbs() {
+    local dest=$1 profile name
+    for profile in stock extreme; do
+        echo "Compiling DTBs (GPU table: $profile)..."
+        cp -f arch/arm64/boot/dts/gpu_profiles/kona-v2-gpu-$profile.dtsi arch/arm64/boot/dts/vendor/qcom/kona-v2-gpu.dtsi
+        rm -rf out/arch/arm64/boot/dts
+        make $MAKE_ARGS dtbs -j$(nproc)
+        if [ -f "out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb" ]; then
+            cp out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb out/arch/arm64/boot/dtb
+        else
+            find out/arch/arm64/boot/dts -name '*.dtb' | sort | head -n 1 | xargs cat > out/arch/arm64/boot/dtb
+        fi
+        name=dtb
+        [ "$profile" = extreme ] && name=dtb_oc
+        cp out/arch/arm64/boot/dtb "$dest/$name"
+    done
+}
+
 apply_ksu_config() {
     if [ $KSU_ENABLE -eq 1 ]; then
         scripts/config --file out/.config \
@@ -314,18 +336,8 @@ if [ "$TARGET_OS" == "aosp" ] || [ "$TARGET_OS" == "both" ] || [ "$TARGET_OS" ==
         exit 1
     fi
 
-    echo "Compiling DTBs (Extreme UV + OC 683 MHz)..."
-    cp -f arch/arm64/boot/dts/gpu_profiles/kona-v2-gpu-extreme.dtsi arch/arm64/boot/dts/vendor/qcom/kona-v2-gpu.dtsi
-    rm -rf out/arch/arm64/boot/dts
-    make $MAKE_ARGS dtbs -j$(nproc)
-    if [ -f "out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb" ]; then
-        cp out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb out/arch/arm64/boot/dtb
-    else
-        find out/arch/arm64/boot/dts -name '*.dtb' | sort | head -n 1 | xargs cat > out/arch/arm64/boot/dtb
-    fi
-
+    build_dtbs build_artifacts/aosp
     cp out/arch/arm64/boot/Image build_artifacts/aosp/Image
-    cp out/arch/arm64/boot/dtb build_artifacts/aosp/dtb
     echo ">>> AOSP Build Done! <<<"
 fi
 
@@ -391,18 +403,8 @@ if [ "$TARGET_OS" == "miui" ] || [ "$TARGET_OS" == "coloros" ] || [ "$TARGET_OS"
         exit 1
     fi
 
-    echo "Compiling DTBs (Extreme UV + OC 683 MHz)..."
-    cp -f arch/arm64/boot/dts/gpu_profiles/kona-v2-gpu-extreme.dtsi arch/arm64/boot/dts/vendor/qcom/kona-v2-gpu.dtsi
-    rm -rf out/arch/arm64/boot/dts
-    make $MAKE_ARGS dtbs -j$(nproc)
-    if [ -f "out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb" ]; then
-        cp out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb out/arch/arm64/boot/dtb
-    else
-        find out/arch/arm64/boot/dts -name '*.dtb' | sort | head -n 1 | xargs cat > out/arch/arm64/boot/dtb
-    fi
-
+    build_dtbs build_artifacts/miui
     cp out/arch/arm64/boot/Image build_artifacts/miui/Image
-    cp out/arch/arm64/boot/dtb build_artifacts/miui/dtb
     if [ "$TARGET_OS" == "coloros" ]; then
         echo ">>> ColorOS / OxygenOS Build Done! <<<"
     else
@@ -421,24 +423,30 @@ if [ "$TARGET_OS" == "aosp" ]; then
     mkdir -p anykernel/kernels/aosp/
     cp build_artifacts/aosp/Image anykernel/kernels/aosp/Image
     cp build_artifacts/aosp/dtb anykernel/kernels/aosp/dtb
+    cp build_artifacts/aosp/dtb_oc anykernel/kernels/aosp/dtb_oc
 elif [ "$TARGET_OS" == "miui" ]; then
     mkdir -p anykernel/kernels/miui/
     cp build_artifacts/miui/Image anykernel/kernels/miui/Image
     cp build_artifacts/miui/dtb anykernel/kernels/miui/dtb
+    cp build_artifacts/miui/dtb_oc anykernel/kernels/miui/dtb_oc
 elif [ "$TARGET_OS" == "coloros" ]; then
     mkdir -p anykernel/kernels/coloros/
     cp build_artifacts/miui/Image anykernel/kernels/coloros/Image
     cp build_artifacts/miui/dtb anykernel/kernels/coloros/dtb
+    cp build_artifacts/miui/dtb_oc anykernel/kernels/coloros/dtb_oc
     cp build_artifacts/miui/Image anykernel/Image
     cp build_artifacts/miui/dtb anykernel/dtb
 else
     mkdir -p anykernel/kernels/aosp/ anykernel/kernels/miui/ anykernel/kernels/coloros/
     cp build_artifacts/aosp/Image anykernel/kernels/aosp/Image
     cp build_artifacts/aosp/dtb anykernel/kernels/aosp/dtb
+    cp build_artifacts/aosp/dtb_oc anykernel/kernels/aosp/dtb_oc
     cp build_artifacts/miui/Image anykernel/kernels/miui/Image
     cp build_artifacts/miui/dtb anykernel/kernels/miui/dtb
+    cp build_artifacts/miui/dtb_oc anykernel/kernels/miui/dtb_oc
     cp build_artifacts/miui/Image anykernel/kernels/coloros/Image
     cp build_artifacts/miui/dtb anykernel/kernels/coloros/dtb
+    cp build_artifacts/miui/dtb_oc anykernel/kernels/coloros/dtb_oc
 fi
 
 # DO NOT include dtbo (preserve panel/touch drivers from ROM)

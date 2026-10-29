@@ -39,6 +39,24 @@ ui_print "  |                                         |";
 ui_print "  ===========================================";
 ui_print " ";
 
+# GPU table: stock unless Vol+ is pressed. dtb_oc carries the OC 683 MHz +
+# undervolt table; no key, no getevent or an app flash keeps stock.
+if ls "$AKHOME"/kernels/*/dtb_oc >/dev/null 2>&1; then
+    gpu_key="";
+    if [ "$BOOTMODE" != "true" ] && command -v getevent >/dev/null 2>&1; then
+        ui_print "- GPU profile: Vol+ = OC + UV (683 MHz), Vol- = stock";
+        ui_print "  No key within 10 s = stock";
+        gpu_key="$(timeout 10 getevent -lq 2>/dev/null | grep -m1 -E 'KEY_VOLUME(UP|DOWN) +DOWN')";
+    fi;
+    case "$gpu_key" in
+        *KEY_VOLUMEUP*)
+            ui_print "  GPU: OC + UV (683 MHz)";
+            for f in "$AKHOME"/kernels/*/dtb_oc; do mv -f "$f" "${f%_oc}"; done;;
+        *)
+            ui_print "  GPU: stock";;
+    esac;
+fi;
+
 # Pick kernel Image (E404 ROM Detection)
 if [ -f "$AKHOME/kernels/miui/Image" ] || [ -f "$AKHOME/kernels/aosp/Image" ] || [ -f "$AKHOME/kernels/coloros/Image" ]; then
     IS_MIUI=0;
@@ -186,7 +204,7 @@ split_boot;
 patch_cmdline "e404_args" "e404_args=${rom_arg:-rom_port},dtbo_oem,dtb_def,batt_def";
 flash_boot;
 
-# 2. Flash DTB to vendor_boot partition (Extreme UV + OC 683 MHz GPU table)
+# 2. Flash DTB to vendor_boot partition (GPU table picked above)
 if [ -f "$AKHOME/dtb_vendor" ]; then
     ui_print "- Flashing DTB...";
     BLOCK=vendor_boot;
