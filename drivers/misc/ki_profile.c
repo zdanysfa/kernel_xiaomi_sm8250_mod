@@ -950,6 +950,15 @@ static const struct attribute_group ki_profile_attr_group = {
 
 static struct kobject *ki_profile_kobj;
 static struct delayed_work ki_profile_delayed_work;
+/*
+ * The ROM switches cpufreq to schedutil late in boot (after 58 s on the
+ * munch HyperOS 4 port; CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE=y), and
+ * sugov limits fail with -ENODEV until then. Keep retrying for about
+ * two minutes so the profile lands without waiting for a screen toggle.
+ */
+#define KI_BOOT_SETTLE_RETRIES		24
+#define KI_BOOT_SETTLE_RETRY_MS		5000
+
 static int boot_settle_retries;
 
 static void ki_profile_delayed_work_fn(struct work_struct *work)
@@ -960,11 +969,13 @@ static void ki_profile_delayed_work_fn(struct work_struct *work)
 	err = ki_apply_effective(true);
 	mutex_unlock(&ki_profile_mutex);
 
-	if (err && boot_settle_retries < 6) {
+	if (err && boot_settle_retries < KI_BOOT_SETTLE_RETRIES) {
 		boot_settle_retries++;
-		pr_info("ki_profile: sugov limits pending (err=%d), retrying in 5s (%d/6)\n",
-			err, boot_settle_retries);
-		schedule_delayed_work(&ki_profile_delayed_work, msecs_to_jiffies(5000));
+		pr_info("ki_profile: sugov limits pending (err=%d), retrying in %dms (%d/%d)\n",
+			err, KI_BOOT_SETTLE_RETRY_MS, boot_settle_retries,
+			KI_BOOT_SETTLE_RETRIES);
+		schedule_delayed_work(&ki_profile_delayed_work,
+				      msecs_to_jiffies(KI_BOOT_SETTLE_RETRY_MS));
 		return;
 	}
 
