@@ -970,9 +970,8 @@ static void do_ceiling_limit(struct work_struct *work)
 		return;
 
 	if (migt_debug == 2)
-		pr_err("migt ceiling_limit ...%d %llu, ceiling_freq: %d",
-		       __LINE__, ktime_to_us(ktime_get()),
-		       i_migt_info->ceiling_freq);
+		pr_err("migt ceiling_limit ...%d %llu", __LINE__,
+		       ktime_to_us(ktime_get()));
 
 	if (likely(!ceiling_from_user)) {
 		update_freq_limit(migt_thresh * NSEC_PER_MSEC);
