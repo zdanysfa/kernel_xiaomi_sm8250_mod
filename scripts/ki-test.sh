@@ -142,18 +142,42 @@ sleep_secs() {
 	[ -n "$mono" ] && echo $((bt - mono)) || echo -1
 }
 
+# Below this the phone may hit 0% before morning and the drain can't be measured
+NIGHT_MIN_LEVEL=50
+
 do_night() {
 	D="$BASE/$PHASE"; st="$D/malam.state"
 	if [ ! -f "$st" ]; then
-		echo "$(date +%s) $(rd $BATT/capacity) $(rd $BATT/charge_counter) $(sleep_secs)" > "$st"
-		note "[malam mulai] baterai $(rd $BATT/capacity)% ($(rd $BATT/status))"
-		echo "Lepas charger, matikan layar, tidur. Besok pagi pilih menu ini lagi."
+		lv=$(rd $BATT/capacity)
+		[ "$(rd $BATT/status)" = Charging ] && { echo "Cabut charger dulu, lalu pilih menu ini lagi."; return; }
+		if [ "${lv:-0}" -lt "$NIGHT_MIN_LEVEL" ]; then
+			echo "Baterai $lv%, di bawah $NIGHT_MIN_LEVEL%: bisa habis sebelum pagi."
+			printf "Tetap mulai? [y/n]: "; read -r a
+			[ "$a" = y ] || return
+		fi
+		echo "$(date +%s) $lv $(rd $BATT/charge_counter) $(sleep_secs) $(rd /proc/sys/kernel/random/boot_id)" > "$st"
+		note "[malam mulai] baterai $lv%"
+		echo "Matikan layar, tidur. Besok pagi pilih menu ini lagi, sebelum dicas."
 		return
 	fi
-	read -r t0 l0 q0 s0 < "$st"
+	read -r t0 l0 q0 s0 b0 < "$st"
 	t1=$(date +%s); l1=$(rd $BATT/capacity); q1=$(rd $BATT/charge_counter); s1=$(sleep_secs)
+	# boot_id changes on every boot: the phone died or rebooted overnight
+	if [ "$(rd /proc/sys/kernel/random/boot_id)" != "$b0" ]; then
+		up=$(awk '{print int($1)}' /proc/uptime)
+		boot_at=$(date -d "@$((t1 - up))" '+%H:%M' 2>/dev/null || echo "?")
+		note "[malam BATAL] HP mati/restart sejak mulai $(date -d "@$t0" '+%H:%M' 2>/dev/null) ($l0%), nyala lagi $boot_at | alasan: $(getprop sys.boot.reason) | bootreason: $(getprop ro.boot.bootreason)"
+		echo "Alasan 'shutdown,battery' = baterai habis (bukan crash). 'kernel_panic' atau 'watchdog' = crash kernel: jalankan menu 1 lalu 6."
+		rm -f "$st"
+		return
+	fi
 	dt=$((t1 - t0))
 	[ "$dt" -lt 600 ] && { echo "Belum 10 menit sejak mulai, batal."; return; }
+	if [ "${l1:-0}" -gt "$l0" ] || [ "$(rd $BATT/status)" = Charging ]; then
+		note "[malam BATAL] HP sempat dicas ($l0% -> $l1%), ukur ulang malam berikutnya"
+		rm -f "$st"
+		return
+	fi
 	mah=$(( (q0 - q1) / 1000 ))
 	if [ "$s0" -ge 0 ] && [ "$s1" -ge 0 ]; then deep=$(( (s1 - s0) * 100 / dt ))%; else deep="?"; fi
 	s=$(awk -v l0="$l0" -v l1="$l1" -v dt="$dt" -v mah="$mah" 'BEGIN {
